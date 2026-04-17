@@ -1,70 +1,105 @@
-# 同城配送经营分析系统（DuckDB 版）
+# 同城配送经营分析系统
 
-项目根目录：`F:\codex\delivery-dashboard`  
-本地数据库文件：`F:\codex\delivery-dashboard\db\delivery_analysis.duckdb`
+本项目是一个基于 `FastAPI + SQLAlchemy + DuckDB + 原生前端` 的本地经营分析系统，当前已经重构为 5 页结构：
 
-## 目录说明
+- 全国总览：`/`
+- 城市经营：`/partner`
+- 时段热力与履约：`/partner/hourly`
+- 主体分析：`/partner/entities`
+- 诊断预警：`/alerts`
 
-```text
-delivery-dashboard
-  app/
-  config/
-  data/
-    orders_raw/      # 原始订单文件（xls/xlsx/csv）
-    orders_stage/    # 程序自动生成或复用的标准 CSV
-    orders/          # 兼容旧目录，订单也可以继续放这里
-    riders/
-    merchants/
-    partners/
-  db/
-  docs/
-  logs/
-  scripts/
-  main.py
-  01-一键导入数据.bat
-  02-一键启动看板.bat
-```
+兼容入口：
+- `/direct` 会跳转到城市经营页中的直营专项区域
 
-## 日常使用
+## 当前运行方式
 
-1. 更新数据：双击 `01-一键导入数据.bat`
-2. 打开看板：双击 `02-一键启动看板.bat`
-3. 浏览器地址：`http://127.0.0.1:8090`
+默认服务端口：
+- `8090`
 
-## 命令行运行
+常用入口：
 
 ```bash
 python main.py import --mode=auto
+python main.py import --mode=force
 python main.py server --port=8090
 ```
 
-## 页面入口
+Windows 批处理入口：
 
-- 全国页：`http://127.0.0.1:8090/`
-- 单城市页：`http://127.0.0.1:8090/partner`
-- 直营页：`http://127.0.0.1:8090/direct`
+- `01-一键导入数据.bat`
+- `01-一键强制重建.bat`
+- `02-一键启动看板.bat`
 
-## 当前导入链路
+## 导入模式
 
-1. `PREPROCESS`：订单 Excel 自动转标准 CSV 到 `data/orders_stage`
-2. `LOAD_STAGE`：DuckDB 原生读取 CSV 进入阶段表
-3. `MERGE_ODS`：按 `order_month` 增量写入 ODS
-4. `BUILD_DWD_ADS`：仅重建受影响月份的 DWD/ADS
-5. `PUBLISH`：发布数据版本，页面只读取已发布版本
+- `auto`
+  - 按文件哈希去重
+  - 原始文件未变化时会直接跳过
+- `force`
+  - 忽略“已成功导入”去重
+  - 重新处理当前文件并重建受影响月份
 
-## 核心口径
+## 数据目录边界
+
+原始数据建议放在：
+
+- `data/orders_raw/`
+- `data/riders/`
+- `data/merchants/`
+- `data/partners/`
+
+兼容旧目录：
+
+- `data/orders/`
+
+程序中间产物：
+
+- `data/orders_stage/`
+
+本仓库默认 **不上传** 以下内容：
+
+- 原始订单、骑手、商家、合伙人表格
+- `orders_stage` 中间文件
+- DuckDB 数据库文件
+- 日志文件
+
+## 当前主要口径
 
 - 主统计日期：按下单日期
-- 有效订单：完成订单 + 支付后取消且支付到取消时长大于 5 分钟
-- 超时取消：下单到取消时长大于 5 分钟
-- 新骑手：按骑手入职时间
-- 新商家：按商家注册时间
-- 新合伙人：按合伙人开城/成立时间
-- 补贴归属：
-  - 总部优惠金额且无营销优惠券 ID：总部补贴
-  - 总部优惠金额且有营销优惠券 ID：合伙人补贴
-  - 优惠金额：合伙人补贴
+- 有效订单：完成订单 + 支付后取消且支付到取消时长大于阈值分钟
+- 超时取消：下单到取消时长大于阈值分钟
+- 完成率：完成订单 / 总订单
+- 取消率：取消订单 / 总订单
+- 有效订单完成率：完成订单 / 有效订单
+- 有效订单取消率：有效取消订单 / 有效订单
+- 经营利润：合伙人收入总额 - 合伙人补贴总额
+- 骑手提成：等同骑手佣金
+- 骑手单均提成：骑手提成总计 / 完成订单
+- 高峰接单骑手数：当前正式替代“高峰在线骑手数”
 
-## 文档位置
+## 仓库文档
 
-项目方案、口径手册、字段字典和优化清单统一放在：`F:\codex\delivery-dashboard\docs`
+当前保留的核心文档位于 `docs/`：
+
+- 最新主方案文档
+- 5 页版 PRD / 页面职责 / 改版差异说明
+- 项目完整口径手册
+- 字段字典
+
+## GitHub 上传规则
+
+本仓库适合上传到 GitHub 的是：
+
+- 代码
+- 配置
+- 脚本
+- 文档
+
+默认不上传：
+
+- 原始数据
+- 中间 stage 文件
+- 数据库文件
+- 日志
+
+如果要推送到 GitHub，请先确认 `.gitignore` 保持有效，并在推送前检查 `git status` 中不含上述数据文件。

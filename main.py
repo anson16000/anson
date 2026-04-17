@@ -8,7 +8,8 @@ from app.config import load_settings
 from app.pipeline import import_all, init_database
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    settings = load_settings()
     parser = argparse.ArgumentParser(description="同城配送经营分析系统")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -21,10 +22,14 @@ def main() -> None:
     )
 
     server_parser = subparsers.add_parser("server", help="启动本地网页看板服务")
-    server_parser.add_argument("--host", default=None, help=f"服务器主机地址（默认：{load_settings().server.host})")
-    server_parser.add_argument("--port", type=int, default=None, help=f"服务器端口（默认：{load_settings().server.port})")
-    server_parser.add_argument("--reload", action="store_true", default=None, help=f"启用热重载（默认：{load_settings().server.reload})")
+    server_parser.add_argument("--host", default=None, help=f"服务器主机地址（默认：{settings.server.host})")
+    server_parser.add_argument("--port", type=int, default=None, help=f"服务器端口（默认：{settings.server.port})")
+    server_parser.add_argument("--reload", action="store_true", default=None, help=f"启用热重载（默认：{settings.server.reload})")
+    return parser
 
+
+def main() -> None:
+    parser = build_parser()
     args = parser.parse_args()
     settings = load_settings()
     init_database(settings)
@@ -35,6 +40,7 @@ def main() -> None:
         return
 
     from app.api import create_app
+
     uvicorn.run(
         create_app,
         host=args.host or settings.server.host,
@@ -45,4 +51,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+  main()

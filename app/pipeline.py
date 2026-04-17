@@ -43,6 +43,7 @@ from app.models import (
     RiderRoster,
     RiderRosterRaw,
 )
+from app.services.import_runtime import should_skip_success_registry
 from app.utils import (
     clean_text,
     dump_json,
@@ -627,6 +628,10 @@ def _needs_partner_region_reload(session: Session) -> bool:
     return False
 
 
+def _should_skip_success_registry(mode: str, registry_hit: bool) -> bool:
+    return should_skip_success_registry(mode, registry_hit)
+
+
 def _preprocess_files(
     session_factory,
     settings: Settings,
@@ -649,7 +654,7 @@ def _preprocess_files(
         sha = file_sha256(path)
         with session_scope(session_factory) as session:
             should_force_reload = (file_type == "orders" and force_order_reload) or (file_type == "partners" and force_partner_reload)
-            skip_by_registry = mode != "force" and _is_success_registry_exists(session, file_type, sha)
+            skip_by_registry = _should_skip_success_registry(mode, _is_success_registry_exists(session, file_type, sha))
             if skip_by_registry and not should_force_reload:
                 skipped += 1
                 continue
@@ -2227,4 +2232,3 @@ def get_latest_import_info(session: Session) -> dict[str, Any]:
         "total_seconds": round(last_job.total_seconds or 0.0, 3) if last_job else 0.0,
         "stage_seconds": stage_seconds,
     }
-
