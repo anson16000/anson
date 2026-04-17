@@ -1,8 +1,7 @@
 ﻿from __future__ import annotations
 
-import json
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
@@ -10,6 +9,22 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import case, func, select
 
+from app.api_support import (
+    api_response,
+    calc_efficiency as _calc_efficiency,
+    coalesce_text as _coalesce_text,
+    day_count as _day_count,
+    default_rider_tiers as _default_rider_tiers,
+    filter_by_date as _filter_by_date,
+    parse_generic_tiers as _parse_generic_tiers,
+    parse_partner_tiers as _parse_partner_tiers,
+    period_contains as _period_contains,
+    resolve_compare_periods as _resolve_compare_periods,
+    safe_ratio,
+    sum_bool as _sum_bool,
+    to_iso_date as _to_iso_date,
+    validate_query_window as _validate_query_window,
+)
 from app.config import load_settings, resolve_path
 from app.database import session_scope
 from app.models import (
@@ -25,7 +40,6 @@ from app.models import (
     AdsPartnerHourMetrics,
     AdsPartnerMerchantDayMetrics,
     AdsPartnerRiderDayMetrics,
-    AdsPartnerUserMerchantMetrics,
     EtlJobRun,
     EtlStageMetrics,
     FileRegistry,
@@ -36,190 +50,7 @@ from app.models import (
     RiderRoster,
 )
 from app.pipeline import get_latest_import_info, import_all, init_database
-
-
-def api_response(data: Any, message: str = "success", code: int = 200) -> dict[str, Any]:
-    return {
-        "code": code,
-        "message": message,
-        "data": data,
-        "timestamp": datetime.now().astimezone().isoformat(),
-    }
-
-
-def safe_ratio(numerator: float, denominator: float) -> float:
-    if not denominator:
-        return 0.0
-    return round(numerator / denominator, 4)
-
-
-def _filter_by_date(rows: list[Any], start_date: date | None, end_date: date | None, attr: str = "date") -> list[Any]:
-    filtered = []
-    for row in rows:
-        value = getattr(row, attr)
-        if start_date and value < start_date:
-            continue
-        if end_date and value > end_date:
-            continue
-        filtered.append(row)
-    return filtered
-
-
-def _resolve_compare_periods(
-    start_date: date | None,
-    end_date: date | None,
-    baseline_start: date | None,
-    baseline_end: date | None,
-    compare_start: date | None,
-    compare_end: date | None,
-) -> tuple[tuple[date | None, date | None], tuple[date | None, date | None]]:
-    if compare_start or compare_end:
-        current_start = compare_start or start_date
-        current_end = compare_end or end_date
-    else:
-        current_start = start_date
-        current_end = end_date
-
-    if baseline_start or baseline_end:
-        return (baseline_start, baseline_end), (current_start, current_end)
-
-    if current_start and current_end:
-        span = max((current_end - current_start).days, 0)
-        derived_end = current_start - timedelta(days=1)
-        derived_start = derived_end - timedelta(days=span)
-        return (derived_start, derived_end), (current_start, current_end)
-
-    return (baseline_start, baseline_end), (current_start, current_end)
-
-
-def _period_contains(value: date, window: tuple[date | None, date | None]) -> bool:
-    start_date, end_date = window
-    if start_date and value < start_date:
-        return False
-    if end_date and value > end_date:
-        return False
-    return True
-
-
-def _day_count(start_date: date | None, end_date: date | None, fallback_dates: list[date] | None = None) -> int:
-    if start_date and end_date:
-        return max((end_date - start_date).days + 1, 1)
-    if fallback_dates:
-        return max(len({value for value in fallback_dates if value}), 1)
-    return 1
-
-
-def _validate_query_window(start_date: date | None, end_date: date | None, max_days: int = 31) -> None:
-    if not start_date or not end_date:
-        return
-    if start_date > end_date:
-        raise HTTPException(status_code=400, detail="开始日期不能晚于结束日期。")
-    day_count = (end_date - start_date).days + 1
-    if day_count > max_days:
-        raise HTTPException(status_code=400, detail=f"单次查询最多支持 {max_days} 天，请缩小日期范围。")
-
-
-def _parse_partner_tiers(raw_value: str | None) -> list[dict[str, Any]]:
-    default_tiers = [
-        {"label": "0-9单/日", "min": 0, "max": 9},
-        {"label": "10-49单/日", "min": 10, "max": 49},
-        {"label": "50-99单/日", "min": 50, "max": 99},
-        {"label": "100单+/日", "min": 100, "max": None},
-    ]
-    if not raw_value:
-        return default_tiers
-    try:
-        parsed = json.loads(raw_value)
-    except json.JSONDecodeError:
-        return default_tiers
-    if not isinstance(parsed, list):
-        return default_tiers
-
-    tiers: list[dict[str, Any]] = []
-    for index, item in enumerate(parsed):
-        if not isinstance(item, dict):
-            continue
-        try:
-            min_value = int(item.get("min", 0) or 0)
-            max_raw = item.get("max")
-            max_value = None if max_raw in (None, "", "null") else int(max_raw)
-        except (TypeError, ValueError):
-            continue
-        if max_value is not None and max_value < min_value:
-            continue
-        tiers.append(
-            {
-                "label": str(item.get("label") or f"层级{index + 1}"),
-                "min": min_value,
-                "max": max_value,
-            }
-        )
-    return tiers or default_tiers
-
-
-def _parse_generic_tiers(raw_value: str | None, default_tiers: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if not raw_value:
-        return default_tiers
-    try:
-        parsed = json.loads(raw_value)
-    except json.JSONDecodeError:
-        return default_tiers
-    if not isinstance(parsed, list):
-        return default_tiers
-
-    tiers: list[dict[str, Any]] = []
-    for index, item in enumerate(parsed):
-        if not isinstance(item, dict):
-            continue
-        try:
-            min_value = int(item.get("min", 0) or 0)
-            max_raw = item.get("max")
-            max_value = None if max_raw in (None, "", "null") else int(max_raw)
-        except (TypeError, ValueError):
-            continue
-        if max_value is not None and max_value < min_value:
-            continue
-        tiers.append(
-            {
-                "label": str(item.get("label") or f"层级{index + 1}"),
-                "min": min_value,
-                "max": max_value,
-            }
-        )
-    return tiers or default_tiers
-
-
-def _default_rider_tiers() -> list[dict[str, Any]]:
-    return [
-        {"label": "1-9单", "min": 1, "max": 9},
-        {"label": "10-29单", "min": 10, "max": 29},
-        {"label": "30-49单", "min": 30, "max": 49},
-        {"label": "50单+", "min": 50, "max": None},
-    ]
-
-
-def _coalesce_text(value: str | None, fallback: str) -> str:
-    text = (value or "").strip()
-    return text or fallback
-
-
-def _to_iso_date(value: Any) -> str | None:
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        return value.date().isoformat()
-    if isinstance(value, date):
-        return value.isoformat()
-    text = str(value).strip()
-    return text or None
-
-
-def _sum_bool(expr):
-    return func.sum(case((expr, 1), else_=0))
-
-
-def _calc_efficiency(completed_orders: float, rider_count: float) -> float:
-    return safe_ratio(completed_orders, rider_count)
+from app.services.partner_entities import build_merchant_like_users
 
 
 def _calc_duration_minutes(start_value: datetime | None, end_value: datetime | None) -> float | None:
@@ -1978,7 +1809,6 @@ def create_app() -> FastAPI:
         start_date: date | None = None,
         end_date: date | None = None,
         new_flag: str = Query(default="all"),
-        merchant_like_threshold: int = Query(default=20),
     ):
         _validate_query_window(start_date, end_date)
         info, _ = partner_rows(partner_id, start_date, end_date)
@@ -1996,24 +1826,6 @@ def create_app() -> FastAPI:
             merchant_stmt = _apply_dwd_filters(merchant_stmt, start_date, end_date, partner_id=partner_id)
             merchant_stmt = merchant_stmt.where(DwdOrderDetail.merchant_id.is_not(None)).group_by(DwdOrderDetail.order_date, DwdOrderDetail.merchant_id)
             merchant_rows = list(session.execute(merchant_stmt).mappings())
-
-            user_rows = list(
-                session.scalars(
-                    select(AdsPartnerUserMerchantMetrics)
-                    .where(AdsPartnerUserMerchantMetrics.partner_id == partner_id)
-                    .order_by(AdsPartnerUserMerchantMetrics.date)
-                )
-            )
-
-        user_rows = _filter_by_date(user_rows, start_date, end_date)
-        totals = defaultdict(int)
-        for row in user_rows:
-            totals[row.user_id] += row.completed_orders
-        merchant_like_users = sorted(
-            [{"user_id": user_id, "completed_orders": completed_orders} for user_id, completed_orders in totals.items() if completed_orders >= merchant_like_threshold],
-            key=lambda item: item["completed_orders"],
-            reverse=True,
-          )[:20]
         new_merchant_daily = defaultdict(int)
         merchant_items_map = defaultdict(
             lambda: {
@@ -2070,7 +1882,33 @@ def create_app() -> FastAPI:
                     merchant_items,
                     key=lambda item: (-int(item["completed_orders"] or 0), -int(item["total_orders"] or 0), str(item["merchant_id"] or "")),
                 ),
-                "merchant_like_users": merchant_like_users,
+            }
+        )
+
+    @app.get("/api/v1/partner/{partner_id}/merchant-like-users")
+    def partner_merchant_like_users(
+        partner_id: str,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        merchant_like_threshold: int = Query(default=20, ge=1),
+    ):
+        _validate_query_window(start_date, end_date)
+        with session_scope(session_factory) as session:
+            info = get_latest_import_info(session)
+            items = build_merchant_like_users(
+                session,
+                partner_id=partner_id,
+                start_date=start_date,
+                end_date=end_date,
+                merchant_like_threshold=merchant_like_threshold,
+                filter_by_date=_filter_by_date,
+            )
+        return api_response(
+            {
+                "data_version": info.get("data_version"),
+                "latest_ready_month": info.get("latest_ready_month"),
+                "merchant_like_threshold": merchant_like_threshold,
+                "items": items,
             }
         )
 
@@ -2095,7 +1933,7 @@ def create_app() -> FastAPI:
         start_date: date | None = None,
         end_date: date | None = None,
     ):
-        response = partner_merchants(partner_id=partner_id, start_date=start_date, end_date=end_date, new_flag="new", merchant_like_threshold=20)
+        response = partner_merchants(partner_id=partner_id, start_date=start_date, end_date=end_date, new_flag="new")
         response["data"] = {
             "data_version": response["data"]["data_version"],
             "latest_ready_month": response["data"]["latest_ready_month"],
@@ -2869,6 +2707,3 @@ def create_app() -> FastAPI:
             }
         )
     return app
-
-
-
