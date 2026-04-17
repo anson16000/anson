@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>同城配送经营分析系统 - 主体分析</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <nav class="top-nav">
+      <a class="nav-link" href="/">全国总览</a>
+      <a class="nav-link" href="/partner">城市经营</a>
+      <a class="nav-link" href="/partner/hourly">时段热力与履约</a>
+      <a class="nav-link active" href="/partner/entities">主体分析</a>
+      <a class="nav-link" href="/alerts">诊断预警</a>
+    </nav>
+
+    <header class="page-header">
+      <div class="page-header-main">
+        <p class="page-tag">主体结构与名单明细专题</p>
+        <h1>主体分析</h1>
+        <p class="page-desc">专门承接新骑手、新商家、用户主体识别、名单明细、骑手分层、商家分析和骑手提成明细。</p>
+      </div>
+      <div class="page-meta-grid">
+        <div class="meta-card">
+          <span>最后导入时间</span>
+          <strong id="entitieslastImportTime">-</strong>
+        </div>
+        <div class="meta-card">
+          <span>最新数据日期</span>
+          <strong id="entitieslatestDataDate">-</strong>
+        </div>
+        <div class="meta-card">
+          <span>数据版本</span>
+          <strong id="entitiesdataVersion">-</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="toolbar report-section">
+      <div class="toolbar-head">
+        <div>
+          <h2>筛选条件</h2>
+          <p>商家型用户阈值只在本页生效；骑手和商家名单筛选也只影响名单明细区，不会刷新其他模块。</p>
+        </div>
+        <button id="refreshEntities" class="btn">刷新数据</button>
+      </div>
+      <div class="toolbar-grid toolbar-grid-partner">
+        <label class="field">
+          <span>开始日期</span>
+          <input id="entitiesStartDate" type="date">
+        </label>
+        <label class="field">
+          <span>结束日期</span>
+          <input id="entitiesEndDate" type="date">
+        </label>
+        <label class="field">
+          <span>合伙人</span>
+          <div id="entitiesPartnerControl"></div>
+        </label>
+        <label class="field">
+          <span>活跃完成单阈值</span>
+          <input id="entitiesActiveThreshold" type="number" min="1" value="1">
+        </label>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">主体摘要</p>
+          <h2>主体摘要</h2>
+        </div>
+      </div>
+      <div id="entitiesConclusion" class="tags"></div>
+      <div id="entitiesCards" class="cards summary-strip"></div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">新主体贡献</p>
+          <h2>新骑手 / 新商家贡献摘要</h2>
+        </div>
+      </div>
+      <div class="report-grid report-grid-2">
+        <article class="report-card report-card-chart">
+          <div class="card-head">
+            <h3>新骑手日单量</h3>
+          </div>
+          <div id="entitiesRiderChart" class="chart"></div>
+        </article>
+        <article class="report-card report-card-chart">
+          <div class="card-head">
+            <h3>新商家日单量</h3>
+          </div>
+          <div id="entitiesMerchantChart" class="chart"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">主体识别</p>
+          <h2>用户主体识别</h2>
+        </div>
+      </div>
+      <div class="toolbar-grid toolbar-grid-list-filters">
+        <label class="field">
+          <span>商家型用户阈值</span>
+          <select id="merchantLikeThresholdLocal">
+            <option value="10">10 单</option>
+            <option value="20" selected>20 单</option>
+            <option value="50">50 单</option>
+          </select>
+        </label>
+      </div>
+      <article class="report-card full-width-card">
+        <div id="merchantLikeUsersTable" class="table-wrap"></div>
+      </article>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">提成明细</p>
+          <h2>骑手提成明细</h2>
+        </div>
+      </div>
+      <article class="report-card full-width-card">
+        <div id="entitiesCommissionTable" class="table-wrap"></div>
+      </article>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">名单明细</p>
+          <h2>骑手名单与商家名单</h2>
+        </div>
+      </div>
+      <div class="toolbar-grid toolbar-grid-list-filters">
+        <label class="field">
+          <span>骑手名单筛选</span>
+          <select id="entitiesRiderListFilter">
+            <option value="all" selected>全部</option>
+            <option value="new">仅新</option>
+            <option value="old">仅老</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>商家名单筛选</span>
+          <select id="entitiesMerchantListFilter">
+            <option value="all" selected>全部</option>
+            <option value="new">仅新</option>
+            <option value="old">仅老</option>
+          </select>
+        </label>
+      </div>
+      <div class="report-grid report-grid-2">
+        <article class="report-card">
+          <div class="card-head">
+            <h3>骑手名单</h3>
+          </div>
+          <div id="entitiesRiderRosterTable" class="table-wrap"></div>
+        </article>
+        <article class="report-card">
+          <div class="card-head">
+            <h3>商家名单</h3>
+          </div>
+          <div id="entitiesMerchantRosterTable" class="table-wrap"></div>
+        </article>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="/static/entities.js"></script>
+</body>
+</html>

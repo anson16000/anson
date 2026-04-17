@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>同城配送经营分析系统 - 时段热力与履约</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <nav class="top-nav">
+      <a class="nav-link" href="/">全国总览</a>
+      <a class="nav-link" href="/partner">城市经营</a>
+      <a class="nav-link active" href="/partner/hourly">时段热力与履约</a>
+      <a class="nav-link" href="/partner/entities">主体分析</a>
+      <a class="nav-link" href="/alerts">诊断预警</a>
+    </nav>
+
+    <header class="page-header">
+      <div class="page-header-main">
+        <p class="page-tag">时段承接与履约质量专题</p>
+        <h1>时段热力与履约</h1>
+        <p class="page-desc">专门看小时运力、热力图、准时率、SLA 履约率与高峰接单骑手数，不再混入主体明细和名单。</p>
+      </div>
+      <div class="page-meta-grid">
+        <div class="meta-card">
+          <span>最后导入时间</span>
+          <strong id="hourlylastImportTime">-</strong>
+        </div>
+        <div class="meta-card">
+          <span>最新数据日期</span>
+          <strong id="hourlylatestDataDate">-</strong>
+        </div>
+        <div class="meta-card">
+          <span>数据版本</span>
+          <strong id="hourlydataVersion">-</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="toolbar report-section">
+      <div class="toolbar-head">
+        <div>
+          <h2>筛选条件</h2>
+          <p>本页继续限制单次查询最多 31 天，支持合伙人切换和有效取消阈值调整。</p>
+        </div>
+        <button id="refreshHourly" class="btn">刷新数据</button>
+      </div>
+      <div class="toolbar-grid toolbar-grid-partner">
+        <label class="field">
+          <span>开始日期</span>
+          <input id="hourlyStartDate" type="date">
+        </label>
+        <label class="field">
+          <span>结束日期</span>
+          <input id="hourlyEndDate" type="date">
+        </label>
+        <label class="field">
+          <span>合伙人</span>
+          <div id="hourlyPartnerControl"></div>
+        </label>
+        <label class="field">
+          <span>有效取消阈值（分钟）</span>
+          <input id="hourlyValidCancelThreshold" type="number" min="1" value="5">
+        </label>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">履约摘要</p>
+          <h2>履约摘要</h2>
+        </div>
+      </div>
+      <div id="hourlyConclusion" class="tags"></div>
+      <div id="hourlyCards" class="cards summary-strip"></div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">小时运力</p>
+          <h2>小时运力</h2>
+        </div>
+      </div>
+      <div class="report-grid report-grid-2">
+        <article class="report-card report-card-chart">
+          <div class="card-head">
+            <h3>每小时接单骑手数</h3>
+            <span>接单骑手数 / 总订单 / 取消率</span>
+          </div>
+          <div id="hourlyAcceptedChart" class="chart"></div>
+        </article>
+        <article class="report-card">
+          <div class="card-head">
+            <h3>小时运力表</h3>
+            <span>用于判断订单不足还是运力不足</span>
+          </div>
+          <div id="hourlyTable" class="table-wrap"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">热力图</p>
+          <h2>时段热力图</h2>
+        </div>
+      </div>
+      <div class="report-stack">
+        <article class="report-card">
+          <div class="card-head">
+            <h3>完成订单热力图</h3>
+          </div>
+          <div id="hourlyCompletedHeatmap" class="heatmap-wrap"></div>
+        </article>
+        <article class="report-card">
+          <div class="card-head">
+            <h3>取消订单热力图</h3>
+          </div>
+          <div id="hourlyCancelledHeatmap" class="heatmap-wrap"></div>
+        </article>
+        <article class="report-card">
+          <div class="card-head">
+            <h3>取消率热力图</h3>
+          </div>
+          <div id="hourlyCancelRateHeatmap" class="heatmap-wrap"></div>
+        </article>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="/static/hourly.js"></script>
+</body>
+</html>

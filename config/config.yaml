@@ -1,0 +1,40 @@
+database:
+  backend: duckdb
+  path: ./db/delivery_analysis.duckdb
+
+import:
+  chunk_size: 50000
+  keep_raw_payload: false
+  stage_format: csv
+
+paths:
+  orders_raw: ./data/orders_raw
+  orders_stage: ./data/orders_stage
+  orders: ./data/orders
+  riders: ./data/riders
+  merchants: ./data/merchants
+  partners: ./data/partners
+  logs: ./logs
+  static: ./app/static
+
+business:
+  valid_order_cancel_threshold_minutes: 5
+  new_rider_window_days: 30
+  new_merchant_window_days: 30
+  new_partner_window_days: 90
+  merchant_like_user_threshold_orders: 20
+
+alerts:
+  large_city_daily_threshold: 500
+  large_city_change_abs: 100
+  large_city_change_pct: 0.20
+  medium_city_daily_threshold: 200
+  medium_city_change_abs: 50
+  medium_city_change_pct: 0.25
+  small_city_change_abs: 30
+  small_city_change_pct: 0.30
+
+server:
+  host: 127.0.0.1
+  port: 8090
+  reload: false

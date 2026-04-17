@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>同城配送经营分析系统 - 诊断预警</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <nav class="top-nav">
+      <a class="nav-link" href="/">全国总览</a>
+      <a class="nav-link" href="/partner">城市经营</a>
+      <a class="nav-link" href="/partner/hourly">时段热力与履约</a>
+      <a class="nav-link" href="/partner/entities">主体分析</a>
+      <a class="nav-link active" href="/alerts">诊断预警</a>
+    </nav>
+
+    <header class="page-header">
+      <div class="page-header-main">
+        <p class="page-tag">风险、关注与整改优先级</p>
+        <h1>诊断预警</h1>
+        <p class="page-desc">专门承接关注加盟商、风险加盟商、健康度评分详情、波动预警和问题清单，不再和全国趋势、区域排名混排。</p>
+      </div>
+      <div class="page-meta-grid">
+        <div class="meta-card">
+          <span>最后导入时间</span>
+          <strong id="alertslastImportTime">-</strong>
+        </div>
+        <div class="meta-card">
+          <span>最新数据日期</span>
+          <strong id="alertslatestDataDate">-</strong>
+        </div>
+        <div class="meta-card">
+          <span>数据版本</span>
+          <strong id="alertsdataVersion">-</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="toolbar report-section">
+      <div class="toolbar-head">
+        <div>
+          <h2>筛选条件</h2>
+          <p>诊断预警页继承全国筛选能力，继续限制最多 31 天，并专注风险、关注、波动和健康度详情。</p>
+        </div>
+        <button id="refreshAlerts" class="btn">刷新数据</button>
+      </div>
+      <div class="toolbar-grid toolbar-grid-admin">
+        <label class="field">
+          <span>开始日期</span>
+          <input id="alertsStartDate" type="date">
+        </label>
+        <label class="field">
+          <span>结束日期</span>
+          <input id="alertsEndDate" type="date">
+        </label>
+        <label class="field">
+          <span>省份</span>
+          <div id="alertsProvinceControl"></div>
+        </label>
+        <label class="field">
+          <span>城市</span>
+          <div id="alertsCityControl"></div>
+        </label>
+        <label class="field">
+          <span>区县</span>
+          <div id="alertsDistrictControl"></div>
+        </label>
+        <label class="field">
+          <span>合伙人</span>
+          <div id="alertsPartnerControl"></div>
+        </label>
+        <label class="field">
+          <span>活跃完成单阈值</span>
+          <input id="alertsActiveThreshold" type="number" min="1" value="1">
+        </label>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">诊断摘要</p>
+          <h2>风险与关注摘要</h2>
+        </div>
+      </div>
+      <div id="alertsConclusion" class="tags"></div>
+      <div id="alertsCards" class="cards summary-strip"></div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">关注与风险</p>
+          <h2>关注加盟商与风险加盟商</h2>
+        </div>
+      </div>
+      <div class="report-grid report-grid-2">
+        <article class="report-card">
+          <div class="card-head">
+            <h3>关注加盟商</h3>
+          </div>
+          <div id="alertsFocusTable" class="table-wrap"></div>
+        </article>
+        <article class="report-card">
+          <div class="card-head">
+            <h3>风险加盟商</h3>
+          </div>
+          <div id="alertsRiskTable" class="table-wrap"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">健康度详情</p>
+          <h2>健康度评分详情</h2>
+        </div>
+      </div>
+      <article class="report-card">
+        <div id="alertsHealthTable" class="table-wrap"></div>
+      </article>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">波动预警</p>
+          <h2>波动预警</h2>
+        </div>
+      </div>
+      <article class="report-card">
+        <div id="alertsFluctuationTable" class="table-wrap"></div>
+      </article>
+    </section>
+  </div>
+
+  <script type="module" src="/static/alerts.js"></script>
+</body>
+</html>

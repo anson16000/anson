@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>同城配送经营分析系统 - 全国总览</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <nav class="top-nav">
+      <a class="nav-link active" href="/">全国总览</a>
+      <a class="nav-link" href="/partner">城市经营</a>
+      <a class="nav-link" href="/partner/hourly">时段热力与履约</a>
+      <a class="nav-link" href="/partner/entities">主体分析</a>
+      <a class="nav-link" href="/alerts">诊断预警</a>
+    </nav>
+
+    <header class="page-header">
+      <div class="page-header-main">
+        <p class="page-tag">全国级总览与排名首页</p>
+        <h1>全国总览</h1>
+        <p class="page-desc">只保留全国趋势、区域排名、加盟商分层与新合伙人表现，风险预警和健康度诊断已独立到“诊断预警”页面。</p>
+      </div>
+      <div class="page-meta-grid">
+        <div class="meta-card">
+          <span>最后导入时间</span>
+          <strong id="adminlastImportTime">-</strong>
+        </div>
+        <div class="meta-card">
+          <span>最新数据日期</span>
+          <strong id="adminlatestDataDate">-</strong>
+        </div>
+        <div class="meta-card">
+          <span>数据版本</span>
+          <strong id="admindataVersion">-</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="toolbar report-section">
+      <div class="toolbar-head">
+        <div>
+          <h2>筛选条件</h2>
+          <p>全国总览继续限制单次查询最多 31 天，支持省、市、区、合伙人、活跃阈值、排名维度和加盟商日均单量分层。</p>
+        </div>
+        <button id="refreshAdmin" class="btn">刷新数据</button>
+      </div>
+      <div class="toolbar-grid toolbar-grid-admin">
+        <label class="field">
+          <span>开始日期</span>
+          <input id="adminStartDate" type="date">
+        </label>
+        <label class="field">
+          <span>结束日期</span>
+          <input id="adminEndDate" type="date">
+        </label>
+        <label class="field">
+          <span>省份</span>
+          <div id="adminProvinceControl"></div>
+        </label>
+        <label class="field">
+          <span>城市</span>
+          <div id="adminCityControl"></div>
+        </label>
+        <label class="field">
+          <span>区县</span>
+          <div id="adminDistrictControl"></div>
+        </label>
+        <label class="field">
+          <span>合伙人</span>
+          <div id="adminPartnerControl"></div>
+        </label>
+        <label class="field">
+          <span>活跃完成单阈值</span>
+          <input id="activeCompletedThreshold" type="number" min="1" value="1">
+        </label>
+        <label class="field">
+          <span>区域排名维度</span>
+          <select id="rankingLevel">
+            <option value="all">全部</option>
+            <option value="province">省份</option>
+            <option value="city">城市</option>
+          </select>
+        </label>
+        <label class="field field-wide">
+          <span>加盟商日均单量分层</span>
+          <input id="partnerTierInput" type="text" value="0-9,10-49,50-99,100+" placeholder="例如 0-9,10-49,50-99,100+">
+        </label>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">经营结论</p>
+          <h2>全国经营结论</h2>
+        </div>
+      </div>
+      <div id="adminConclusion" class="tags"></div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">一级 KPI</p>
+          <h2>统一主指标</h2>
+        </div>
+      </div>
+      <div id="adminCards" class="cards summary-strip"></div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">全国趋势</p>
+          <h2>全国趋势</h2>
+        </div>
+      </div>
+      <article class="report-card report-card-chart">
+        <div class="card-head">
+          <h3>总订单 / 有效订单 / 完成订单趋势</h3>
+          <span>按下单日期统计</span>
+        </div>
+        <div id="adminTrendChart" class="chart tall"></div>
+      </article>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">区域排名</p>
+          <h2>区域排名</h2>
+        </div>
+      </div>
+      <article class="report-card">
+        <div class="card-head">
+          <h3>区域经营排名</h3>
+          <span>支持全部 / 省份 / 城市切换</span>
+        </div>
+        <div id="regionRankingTable" class="table-wrap"></div>
+      </article>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">加盟商分层</p>
+          <h2>加盟商日均单量分层</h2>
+        </div>
+      </div>
+      <article class="report-card">
+        <div id="partnerTierTable" class="table-wrap"></div>
+      </article>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">新合伙人表现</p>
+          <h2>新合伙人 30 / 60 / 90 日表现</h2>
+        </div>
+      </div>
+      <article class="report-card">
+        <div id="newPartnerTable" class="table-wrap"></div>
+      </article>
+    </section>
+  </div>
+
+  <script type="module" src="/static/admin.js"></script>
+</body>
+</html>
