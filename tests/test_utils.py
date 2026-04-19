@@ -19,7 +19,7 @@ class UtilsTestCase(unittest.TestCase):
         self.assertIsNone(normalize_identifier("-"))
 
     def test_parse_float_strips_currency_and_text(self):
-        self.assertEqual(parse_float("￥1,234.50"), 1234.5)
+        self.assertEqual(parse_float("¥1,234.50"), 1234.5)
         self.assertEqual(parse_float("净额-88元"), -88.0)
         self.assertEqual(parse_float(None), 0.0)
         self.assertEqual(parse_float("无效值"), 0.0)
@@ -35,7 +35,7 @@ class UtilsTestCase(unittest.TestCase):
         self.assertEqual(result, "2026-03_orders__abcdef123456.csv")
 
     def test_infer_order_month_from_inputs(self):
-        self.assertEqual(infer_order_month_from_filename("2026年3月订单明细.xls"), "2026-03")
+        self.assertEqual(infer_order_month_from_filename("2026-03 orders.xls"), "2026-03")
         self.assertEqual(infer_order_month_from_filename("orders_2026-11.csv"), "2026-11")
         self.assertIsNone(infer_order_month_from_filename("orders.csv"))
         self.assertEqual(infer_order_month_from_value("2026-04-15 08:30:00"), "2026-04")

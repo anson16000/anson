@@ -1,11 +1,12 @@
 import {
+  MAX_QUERY_DAYS,
   api,
+  createPageController,
   createPartnerRegionFilterController,
   renderSystemMeta,
   requireElement,
   setDateRange,
   showError,
-  validateDateRangeBySelectors,
 } from "/static/common.js";
 import {
   renderAdminConclusion,
@@ -23,7 +24,7 @@ const filtersController = createPartnerRegionFilterController({
     district: "#adminDistrictControl",
     partner_id: "#adminPartnerControl",
   },
-  onChange: () => loadPage().catch(showError),
+  onChange: () => controller.loadPage().catch(showError),
 });
 
 function parseTierText(value) {
@@ -45,51 +46,43 @@ function parseTierText(value) {
     .filter(Boolean);
 }
 
-function baseFilters() {
-  const { startDateText, endDateText } = validateDateRangeBySelectors("#adminStartDate", "#adminEndDate", 31);
-  const tiers = parseTierText(requireElement("#partnerTierInput").value);
-  return {
-    start_date: startDateText,
-    end_date: endDateText,
-    province: filtersController.filters.province,
-    city: filtersController.filters.city,
-    district: filtersController.filters.district,
-    partner_id: filtersController.filters.partner_id,
-    active_completed_threshold: requireElement("#activeCompletedThreshold").value || 1,
-    ranking_level: requireElement("#rankingLevel").value || "all",
-    partner_tiers: tiers.length ? JSON.stringify(tiers) : "",
-  };
-}
+const controller = createPageController({
+  selectors: {
+    startDate: "#adminStartDate",
+    endDate: "#adminEndDate",
+  },
+  maxDays: MAX_QUERY_DAYS,
+  additionalFilters: () => {
+    const tiers = parseTierText(requireElement("#partnerTierInput").value);
+    return {
+      province: filtersController.filters.province,
+      city: filtersController.filters.city,
+      district: filtersController.filters.district,
+      partner_id: filtersController.filters.partner_id,
+      active_completed_threshold: requireElement("#activeCompletedThreshold").value || 1,
+      ranking_level: requireElement("#rankingLevel").value || "all",
+      partner_tiers: tiers.length ? JSON.stringify(tiers) : "",
+    };
+  },
+  populateFilters: async (meta) => {
+    renderSystemMeta(meta, { prefix: "admin" });
+    setDateRange("#adminStartDate", "#adminEndDate", meta.system.latest_data_date);
+    filtersController.setPartners(meta.partners || []);
+  },
+  bindEvents: ({ loadPage, bindRefresh, bindChange }) => {
+    bindRefresh("#refreshAdmin");
+    bindChange(["#adminStartDate", "#adminEndDate", "#activeCompletedThreshold", "#rankingLevel", "#partnerTierInput"]);
+  },
+  loadData: async (filters) => {
+    const metrics = await api("/api/v1/admin/metrics", filters);
+    renderAdminConclusion(metrics);
+    renderAdminSummaryCards(metrics);
+    renderAdminTrend(metrics);
+    renderRegionRanking(metrics.region_ranking || []);
+    renderPartnerTierTable(metrics.partner_tier_stats || []);
+    renderNewPartnerTable(metrics.new_partner_performance || []);
+  },
+  onError: showError,
+});
 
-function populateFilters(meta) {
-  renderSystemMeta(meta, { prefix: "admin" });
-  setDateRange("#adminStartDate", "#adminEndDate", meta.system.latest_data_date);
-  filtersController.setPartners(meta.partners || []);
-}
-
-async function loadPage() {
-  const filters = baseFilters();
-  const metrics = await api("/api/v1/admin/metrics", filters);
-  renderAdminConclusion(metrics);
-  renderAdminSummaryCards(metrics);
-  renderAdminTrend(metrics);
-  renderRegionRanking(metrics.region_ranking || []);
-  renderPartnerTierTable(metrics.partner_tier_stats || []);
-  renderNewPartnerTable(metrics.new_partner_performance || []);
-}
-
-function bindEvents() {
-  requireElement("#refreshAdmin").addEventListener("click", () => loadPage().catch(showError));
-  ["#adminStartDate", "#adminEndDate", "#activeCompletedThreshold", "#rankingLevel", "#partnerTierInput"].forEach((selector) => {
-    requireElement(selector).addEventListener("change", () => loadPage().catch(showError));
-  });
-}
-
-async function bootstrap() {
-  const meta = await api("/api/v1/meta");
-  populateFilters(meta);
-  bindEvents();
-  await loadPage();
-}
-
-bootstrap().catch(showError);
+controller.bootstrap().catch(showError);

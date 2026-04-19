@@ -30,7 +30,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "}" ^
   "if (-not $python) {" ^
   "  $pythonCmd = Get-Command python -ErrorAction SilentlyContinue;" ^
-  "  if ($pythonCmd) { $python = $pythonCmd.Source }" ^
+  "  if ($pythonCmd -and $pythonCmd.Source -notlike '*WindowsApps*') { $python = $pythonCmd.Source }" ^
   "}" ^
   "if (-not $python) {" ^
   "  Write-Host 'Python not found.';" ^

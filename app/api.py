@@ -27,6 +27,7 @@ from app.api_support import (
 )
 from app.config import load_settings, resolve_path
 from app.database import session_scope
+from app.logging_config import setup_logging
 from app.models import (
     AdsAdminPartnerMetrics,
     AdsDirectCancelDayMetrics,
@@ -50,7 +51,15 @@ from app.models import (
     RiderRoster,
 )
 from app.pipeline import get_latest_import_info, import_all, init_database
+from app.services.alerts_service import build_partner_fluctuation_payload
+from app.services.direct_metrics import build_direct_new_merchants_payload, build_direct_new_riders_payload
 from app.services.partner_entities import build_merchant_like_users
+from app.services.partner_metrics import (
+    build_partner_daily_payload,
+    build_partner_health_payload,
+    build_partner_overview_payload,
+)
+from app.services.partner_rosters import build_partner_merchants_payload, build_partner_riders_payload
 
 
 def _calc_duration_minutes(start_value: datetime | None, end_value: datetime | None) -> float | None:
@@ -239,6 +248,30 @@ def _apply_dwd_filters(
         stmt = stmt.where(DwdOrderDetail.district == district)
     if partner_id:
         stmt = stmt.where(DwdOrderDetail.partner_id == partner_id)
+    return stmt
+
+
+def _apply_partner_day_filters(
+    stmt,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    province: str | None = None,
+    city: str | None = None,
+    district: str | None = None,
+    partner_id: str | None = None,
+):
+    if start_date:
+        stmt = stmt.where(AdsPartnerDayMetrics.date >= start_date)
+    if end_date:
+        stmt = stmt.where(AdsPartnerDayMetrics.date <= end_date)
+    if province:
+        stmt = stmt.where(AdsPartnerDayMetrics.province == province)
+    if city:
+        stmt = stmt.where(AdsPartnerDayMetrics.city == city)
+    if district:
+        stmt = stmt.where(AdsPartnerDayMetrics.district == district)
+    if partner_id:
+        stmt = stmt.where(AdsPartnerDayMetrics.partner_id == partner_id)
     return stmt
 
 
@@ -490,6 +523,7 @@ def _build_order_summary(total_orders: float, valid_orders: float, completed_ord
 
 def create_app() -> FastAPI:
     settings = load_settings()
+    setup_logging(str(resolve_path(settings.paths.logs)))
     _, session_factory = init_database(settings)
 
     app = FastAPI(title="Delivery Dashboard", version="1.0.0")
@@ -1154,6 +1188,10 @@ def create_app() -> FastAPI:
     def admin_partner_fluctuation(
         start_date: date | None = None,
         end_date: date | None = None,
+        province: str | None = None,
+        city: str | None = None,
+        district: str | None = None,
+        partner_id: str | None = None,
         large_city_daily_threshold: int | None = Query(default=None),
         large_city_change_abs: int | None = Query(default=None),
         large_city_change_pct: float | None = Query(default=None),
@@ -1166,83 +1204,36 @@ def create_app() -> FastAPI:
         _validate_query_window(start_date, end_date)
         with session_scope(session_factory) as session:
             info = get_latest_import_info(session)
-            rows = list(session.scalars(select(AdsPartnerDayMetrics).order_by(AdsPartnerDayMetrics.partner_id, AdsPartnerDayMetrics.date)))
-
-        grouped = defaultdict(list)
-        for row in rows:
-            if start_date and row.date < start_date:
-                continue
-            if end_date and row.date > end_date:
-                continue
-            grouped[row.partner_id].append(row)
-
-        large_daily = large_city_daily_threshold or settings.alerts.large_city_daily_threshold
-        large_abs = large_city_change_abs or settings.alerts.large_city_change_abs
-        large_pct = large_city_change_pct if large_city_change_pct is not None else settings.alerts.large_city_change_pct
-        medium_daily = medium_city_daily_threshold or settings.alerts.medium_city_daily_threshold
-        medium_abs = medium_city_change_abs or settings.alerts.medium_city_change_abs
-        medium_pct = medium_city_change_pct if medium_city_change_pct is not None else settings.alerts.medium_city_change_pct
-        small_abs = small_city_change_abs or settings.alerts.small_city_change_abs
-        small_pct = small_city_change_pct if small_city_change_pct is not None else settings.alerts.small_city_change_pct
-
-        alerts = []
-        for partner_id_value, series in grouped.items():
-            if len(series) < 2:
-                continue
-            latest = series[-1]
-            previous = series[:-1]
-            baseline = sum(item.completed_orders for item in previous[-7:]) / min(len(previous), 7)
-            change_abs = latest.completed_orders - baseline
-            change_pct = change_abs / baseline if baseline else 0.0
-
-            if baseline >= large_daily:
-                hit = abs(change_abs) >= large_abs and abs(change_pct) >= large_pct
-                city_level = "large"
-            elif baseline >= medium_daily:
-                hit = abs(change_abs) >= medium_abs and abs(change_pct) >= medium_pct
-                city_level = "medium"
-            else:
-                hit = abs(change_abs) >= small_abs and abs(change_pct) >= small_pct
-                city_level = "small"
-            if not hit:
-                continue
-
-            alerts.append(
-                {
-                    "partner_id": partner_id_value,
-                    "partner_name": latest.partner_name,
-                    "date": latest.date.isoformat(),
-                    "latest_completed_orders": latest.completed_orders,
-                    "baseline_completed_orders": round(baseline, 2),
-                    "change_abs": round(change_abs, 2),
-                    "change_pct": round(change_pct, 4),
-                    "new_riders": latest.new_riders,
-                    "new_merchants": latest.new_merchants,
-                    "active_riders": latest.active_riders,
-                    "active_merchants": latest.active_merchants,
-                    "cancel_rate": latest.cancel_rate,
-                    "hq_subsidy_total": latest.hq_subsidy_total,
-                    "partner_subsidy_total": latest.partner_subsidy_total,
-                    "city_level": city_level,
-                }
+            stmt = select(AdsPartnerDayMetrics).order_by(AdsPartnerDayMetrics.partner_id, AdsPartnerDayMetrics.date)
+            stmt = _apply_partner_day_filters(
+                stmt,
+                start_date=start_date,
+                end_date=end_date,
+                province=province,
+                city=city,
+                district=district,
+                partner_id=partner_id,
             )
-
-        alerts.sort(key=lambda item: abs(item["change_pct"]), reverse=True)
+            rows = list(session.scalars(stmt))
+        payload = build_partner_fluctuation_payload(
+            rows,
+            settings.alerts,
+            overrides={
+                "large_city_daily_threshold": large_city_daily_threshold,
+                "large_city_change_abs": large_city_change_abs,
+                "large_city_change_pct": large_city_change_pct,
+                "medium_city_daily_threshold": medium_city_daily_threshold,
+                "medium_city_change_abs": medium_city_change_abs,
+                "medium_city_change_pct": medium_city_change_pct,
+                "small_city_change_abs": small_city_change_abs,
+                "small_city_change_pct": small_city_change_pct,
+            },
+        )
         return api_response(
             {
                 "data_version": info.get("data_version"),
                 "latest_ready_month": info.get("latest_ready_month"),
-                "alerts": alerts[:50],
-                "applied_thresholds": {
-                    "large_city_daily_threshold": large_daily,
-                    "large_city_change_abs": large_abs,
-                    "large_city_change_pct": large_pct,
-                    "medium_city_daily_threshold": medium_daily,
-                    "medium_city_change_abs": medium_abs,
-                    "medium_city_change_pct": medium_pct,
-                    "small_city_change_abs": small_abs,
-                    "small_city_change_pct": small_pct,
-                },
+                **payload,
             }
         )
 
@@ -1407,87 +1398,30 @@ def create_app() -> FastAPI:
             }
 
         latest = rows[-1]
-        sla_metrics = _build_sla_metrics_from_rows(dwd_rows, sla_minutes)
-        cancel_rate = safe_ratio(summary["cancelled_orders"], summary["total_orders"])
-        actual_received_total = float(amount_row["completed_amount_paid"] or 0.0)
-        rider_commission_total = float(amount_row["rider_income_total"] or 0.0)
-        partner_income_total = float(amount_row["partner_income_total"] or 0.0)
-        partner_subsidy_total = float(amount_row["partner_subsidy_total"] or 0.0)
-        partner_profit = partner_income_total - partner_subsidy_total
-        valid_cancel_orders = int(amount_row["valid_cancel_orders"] or 0)
         day_count = _day_count(start_date, end_date, [item.date for item in rows if item.date])
-        health_score = _build_health_score(
-            {
-                "total_orders": summary["total_orders"],
-                "valid_orders": summary["valid_orders"],
-                "completed_orders": summary["completed_orders"],
-                "cancelled_orders": summary["cancelled_orders"],
-                "valid_cancel_orders": valid_cancel_orders,
-                "active_riders": active_riders,
-                "active_merchants": active_merchants,
-                "new_merchant_orders": summary["new_merchant_orders"],
-                "actual_received_total": actual_received_total,
-                "partner_profit": partner_profit,
-            },
-            day_count=day_count,
-        )
-        diagnostics = []
-        if cancel_rate > 0.20:
-            diagnostics.append("全天取消率偏高，建议优先排查运力响应和超时接单。")
-        if summary["new_rider_orders"] and summary["new_rider_orders"] < summary["completed_orders"] * 0.1:
-            diagnostics.append("新骑手完成贡献偏低，可关注入职后首周激活和带教。")
-        if summary["new_merchant_orders"] and summary["new_merchant_orders"] < summary["completed_orders"] * 0.1:
-            diagnostics.append("新商家完成贡献偏低，可关注首单转化和商家运营跟进。")
-        if not diagnostics:
-            diagnostics.append("当前城市经营整体平稳。")
-
         return api_response(
-            {
-                "data_version": info.get("data_version"),
-                "latest_ready_month": info.get("latest_ready_month"),
-                "partner_id": partner_id,
-                "partner_name": latest.partner_name,
-                "province": latest.province,
-                "city": latest.city,
-                "district": latest.district,
-                "summary": {
-                    **_build_order_summary(
-                        summary["total_orders"],
-                        summary["valid_orders"],
-                        summary["completed_orders"],
-                        summary["cancelled_orders"],
-                        active_merchants=active_merchants,
-                        new_merchants=new_merchants,
-                        active_riders=active_riders,
-                        new_riders=new_riders,
-                        efficiency=_calc_efficiency(summary["completed_orders"], active_riders),
-                        actual_received_total=round(actual_received_total, 2),
-                        rider_commission_total=round(rider_commission_total, 2),
-                        partner_income_total=round(partner_income_total, 2),
-                        partner_subsidy_total=round(partner_subsidy_total, 2),
-                        partner_profit=round(partner_profit, 2),
-                        avg_ticket_price=round(actual_received_total / summary["completed_orders"], 2) if summary["completed_orders"] else 0.0,
-                        rider_avg_commission=round(rider_commission_total / summary["completed_orders"], 2) if summary["completed_orders"] else 0.0,
-                        rider_avg_income=round(rider_commission_total / summary["completed_orders"], 2) if summary["completed_orders"] else 0.0,
-                        partner_avg_profit=round(partner_profit / summary["completed_orders"], 2) if summary["completed_orders"] else 0.0,
-                        on_time_orders=int(sla_metrics["on_time_orders"]),
-                        on_time_rate=sla_metrics["on_time_rate"],
-                        sla_minutes=sla_minutes,
-                        sla_on_time_orders=int(sla_metrics["sla_on_time_orders"]),
-                        sla_overtime_orders=int(sla_metrics["sla_overtime_orders"]),
-                        sla_on_time_rate=sla_metrics["sla_on_time_rate"],
-                        sla_overtime_rate=sla_metrics["sla_overtime_rate"],
-                        health_score=health_score,
-                        hq_subsidy_total=round(summary["hq_subsidy_total"], 2),
-                    ),
-                },
-                "applied_thresholds": {
-                    "active_completed_threshold": active_completed_threshold,
-                    "valid_cancel_threshold_minutes": threshold,
-                    "sla_minutes": sla_minutes,
-                },
-                "diagnostics": diagnostics,
-            }
+            build_partner_overview_payload(
+                info=info,
+                partner_id=partner_id,
+                latest_row=latest,
+                rows=rows,
+                dwd_rows=dwd_rows,
+                summary=summary,
+                active_riders=active_riders,
+                active_merchants=active_merchants,
+                new_riders=new_riders,
+                new_merchants=new_merchants,
+                amount_row=amount_row,
+                threshold=threshold,
+                sla_minutes=sla_minutes,
+                active_completed_threshold=active_completed_threshold,
+                day_count=day_count,
+                calc_duration_minutes=_calc_duration_minutes,
+                safe_ratio=safe_ratio,
+                calc_efficiency=_calc_efficiency,
+                build_order_summary=_build_order_summary,
+                build_health_score=_build_health_score,
+            )
         )
 
     @app.get("/api/v1/partner/{partner_id}/health")
@@ -1532,33 +1466,18 @@ def create_app() -> FastAPI:
             row = session.execute(stmt).mappings().first() or {}
 
         day_count = _day_count(start_date, end_date, [])
-        partner_profit = float(row.get("partner_income_total") or 0.0) - float(row.get("partner_subsidy_total") or 0.0)
-        health_score = _build_health_score(
-            {
-                "total_orders": float(row.get("total_orders") or 0.0),
-                "valid_orders": float(row.get("valid_orders") or 0.0),
-                "completed_orders": float(row.get("completed_orders") or 0.0),
-                "cancelled_orders": float(row.get("cancelled_orders") or 0.0),
-                "valid_cancel_orders": float(row.get("valid_cancel_orders") or 0.0),
-                "active_riders": active_riders,
-                "active_merchants": active_merchants,
-                "new_merchant_orders": float(row.get("new_merchant_orders") or 0.0),
-                "actual_received_total": float(row.get("actual_received_total") or 0.0),
-                "partner_profit": partner_profit,
-            },
-            day_count=day_count,
-        )
         return api_response(
-            {
-                "data_version": info.get("data_version"),
-                "latest_ready_month": info.get("latest_ready_month"),
-                "partner_id": partner_id,
-                "health_score": health_score,
-                "applied_thresholds": {
-                    "active_completed_threshold": active_completed_threshold,
-                    "valid_cancel_threshold_minutes": threshold,
-                },
-            }
+            build_partner_health_payload(
+                info=info,
+                partner_id=partner_id,
+                row=row,
+                active_riders=active_riders,
+                active_merchants=active_merchants,
+                day_count=day_count,
+                threshold=threshold,
+                active_completed_threshold=active_completed_threshold,
+                build_health_score=_build_health_score,
+            )
         )
 
     @app.get("/api/v1/partner/{partner_id}/daily")
@@ -1575,93 +1494,15 @@ def create_app() -> FastAPI:
             stmt = _apply_dwd_filters(stmt, start_date, end_date, partner_id=partner_id)
             dwd_rows = list(session.scalars(stmt))
             sla_minutes = _get_partner_sla_minutes(session, partner_id)
-
-        grouped = defaultdict(
-            lambda: {
-                "total_orders": 0,
-                "completed_orders": 0,
-                "cancelled_orders": 0,
-                "valid_orders": 0,
-                "actual_received_total": 0.0,
-                "rider_commission_total": 0.0,
-                "partner_income_total": 0.0,
-                "partner_subsidy_total": 0.0,
-                "new_rider_orders": 0,
-                "new_merchant_orders": 0,
-                "on_time_orders": 0,
-                "sla_on_time_orders": 0,
-                "sla_overtime_orders": 0,
-                "sla_completed_base": 0,
-            }
-        )
-        for row in dwd_rows:
-            if not row.order_date:
-                continue
-            bucket = grouped[row.order_date.isoformat()]
-            bucket["total_orders"] += 1
-            if row.is_completed:
-                bucket["completed_orders"] += 1
-                bucket["actual_received_total"] += float(row.amount_paid or 0.0)
-                bucket["rider_commission_total"] += float(row.rider_income or 0.0)
-                bucket["partner_income_total"] += float(row.partner_income or 0.0)
-                bucket["partner_subsidy_total"] += float(row.partner_subsidy_amount or 0.0)
-                if row.is_new_rider_order:
-                    bucket["new_rider_orders"] += 1
-                if row.is_new_merchant_order:
-                    bucket["new_merchant_orders"] += 1
-                duration_minutes = _calc_duration_minutes(row.accept_time, row.complete_time)
-                if duration_minutes is not None:
-                    bucket["sla_completed_base"] += 1
-                    if duration_minutes <= 30:
-                        bucket["on_time_orders"] += 1
-                    if duration_minutes <= sla_minutes:
-                        bucket["sla_on_time_orders"] += 1
-                    else:
-                        bucket["sla_overtime_orders"] += 1
-            if row.is_cancelled:
-                bucket["cancelled_orders"] += 1
-            is_valid_cancel = bool(row.is_cancelled and row.is_paid and (row.pay_cancel_minutes or 0) > threshold)
-            if row.is_completed or is_valid_cancel:
-                bucket["valid_orders"] += 1
-
         return api_response(
-            {
-                "data_version": info.get("data_version"),
-                "latest_ready_month": info.get("latest_ready_month"),
-                "items": [
-                    {
-                        "date": bucket_date,
-                        "total_orders": int(bucket["total_orders"]),
-                        "valid_orders": int(bucket["valid_orders"]),
-                        "valid_completed_orders": int(bucket["completed_orders"]),
-                        "valid_completion_rate": safe_ratio(bucket["completed_orders"], bucket["valid_orders"]),
-                        "completed_orders": int(bucket["completed_orders"]),
-                        "cancelled_orders": int(bucket["cancelled_orders"]),
-                        "completion_rate": safe_ratio(bucket["completed_orders"], bucket["total_orders"]),
-                        "cancel_rate": safe_ratio(bucket["cancelled_orders"], bucket["total_orders"]),
-                        "new_rider_orders": int(bucket["new_rider_orders"]),
-                        "new_merchant_orders": int(bucket["new_merchant_orders"]),
-                        "actual_received_total": round(float(bucket["actual_received_total"]), 2),
-                        "rider_commission_total": round(float(bucket["rider_commission_total"]), 2),
-                        "partner_income_total": round(float(bucket["partner_income_total"]), 2),
-                        "partner_subsidy_total": round(float(bucket["partner_subsidy_total"]), 2),
-                        "partner_profit": round(float(bucket["partner_income_total"]) - float(bucket["partner_subsidy_total"]), 2),
-                        "on_time_orders": int(bucket["on_time_orders"]),
-                        "on_time_rate": safe_ratio(bucket["on_time_orders"], bucket["sla_completed_base"]),
-                        "sla_minutes": sla_minutes,
-                        "sla_on_time_orders": int(bucket["sla_on_time_orders"]),
-                        "sla_overtime_orders": int(bucket["sla_overtime_orders"]),
-                        "sla_on_time_rate": safe_ratio(bucket["sla_on_time_orders"], bucket["sla_completed_base"]),
-                        "sla_overtime_rate": safe_ratio(bucket["sla_overtime_orders"], bucket["sla_completed_base"]),
-                        "rider_avg_commission": round(float(bucket["rider_commission_total"]) / float(bucket["completed_orders"]), 2) if bucket["completed_orders"] else 0.0,
-                    }
-                    for bucket_date, bucket in sorted(grouped.items())
-                ],
-                "applied_thresholds": {
-                    "valid_cancel_threshold_minutes": threshold,
-                    "sla_minutes": sla_minutes,
-                },
-            }
+            build_partner_daily_payload(
+                info=info,
+                dwd_rows=dwd_rows,
+                threshold=threshold,
+                sla_minutes=sla_minutes,
+                calc_duration_minutes=_calc_duration_minutes,
+                safe_ratio=safe_ratio,
+            )
         )
 
     @app.get("/api/v1/partner/{partner_id}/hourly")
@@ -1723,85 +1564,16 @@ def create_app() -> FastAPI:
             daily_stmt = _apply_dwd_filters(daily_stmt, start_date, end_date, partner_id=partner_id)
             daily_stmt = daily_stmt.where(DwdOrderDetail.rider_id.is_not(None)).group_by(DwdOrderDetail.order_date, DwdOrderDetail.rider_id)
             daily_rows = list(session.execute(daily_stmt).mappings())
-
-        new_rider_daily = defaultdict(int)
-        rider_items_map = defaultdict(
-            lambda: {
-                "rider_id": None,
-                "rider_name": None,
-                "hire_date": None,
-                "total_orders": 0,
-                "completed_orders": 0,
-                "cancelled_orders": 0,
-                "is_new_rider": 0,
-            }
-        )
-        rider_totals = defaultdict(lambda: {"rider_name": None, "completed_orders": 0})
-        normalized_new_flag = (new_flag or "all").lower()
-        if normalized_new_flag not in {"all", "new", "old"}:
-            normalized_new_flag = "all"
-        for row in daily_rows:
-            total_orders = int(row["total_orders"] or 0)
-            completed_orders = int(row["completed_orders"] or 0)
-            cancelled_orders = int(row["cancelled_orders"] or 0)
-            rider_id_value = row["rider_id"]
-            rider_name_value = _coalesce_text(row["roster_rider_name"], _coalesce_text(row["dwd_rider_name"], rider_id_value))
-            is_new_rider = int(row["is_new_rider"] or 0)
-            rider_totals[rider_id_value]["rider_name"] = rider_name_value
-            rider_totals[rider_id_value]["completed_orders"] += completed_orders
-            rider_item = rider_items_map[rider_id_value]
-            rider_item["rider_id"] = rider_id_value
-            rider_item["rider_name"] = rider_name_value
-            rider_item["hire_date"] = _to_iso_date(row["hire_date"]) or rider_item["hire_date"]
-            rider_item["total_orders"] += total_orders
-            rider_item["completed_orders"] += completed_orders
-            rider_item["cancelled_orders"] += cancelled_orders
-            rider_item["is_new_rider"] = max(int(rider_item["is_new_rider"]), is_new_rider)
-            if is_new_rider == 1 and completed_orders > 0:
-                date_text = _to_iso_date(row["date"])
-                if date_text:
-                    new_rider_daily[date_text] += completed_orders
-
-        rider_items = []
-        for item in rider_items_map.values():
-            is_new_rider = int(item["is_new_rider"] or 0)
-            if normalized_new_flag == "new" and is_new_rider != 1:
-                continue
-            if normalized_new_flag == "old" and is_new_rider == 1:
-                continue
-            rider_items.append(item)
-
-        tier_rows = [
-            {"label": tier["label"], "min": tier["min"], "max": tier["max"], "rider_count": 0}
-            for tier in tiers
-        ]
-        for rider_total in rider_totals.values():
-            completed_orders = int(rider_total["completed_orders"])
-            for tier_row in tier_rows:
-                max_value = tier_row["max"]
-                if completed_orders < tier_row["min"]:
-                    continue
-                if max_value is not None and completed_orders > max_value:
-                    continue
-                tier_row["rider_count"] += 1
-                break
-        tier_rows.append({"label": "合计", "rider_count": sum(item["rider_count"] for item in tier_rows)})
-
         return api_response(
-                {
-                    "data_version": info.get("data_version"),
-                    "latest_ready_month": info.get("latest_ready_month"),
-                    "daily": [
-                        {"date": bucket_date, "completed_orders": completed_orders}
-                        for bucket_date, completed_orders in sorted(new_rider_daily.items())
-                    ],
-                    "items": sorted(
-                        rider_items,
-                        key=lambda item: (-int(item["completed_orders"] or 0), -int(item["total_orders"] or 0), str(item["rider_id"] or "")),
-                    ),
-                    "rider_tiers": tier_rows,
-                }
+            build_partner_riders_payload(
+                daily_rows=daily_rows,
+                tiers=tiers,
+                new_flag=new_flag,
+                info=info,
+                coalesce_text=_coalesce_text,
+                to_iso_date=_to_iso_date,
             )
+        )
 
     @app.get("/api/v1/partner/{partner_id}/merchants")
     def partner_merchants(
@@ -1826,63 +1598,13 @@ def create_app() -> FastAPI:
             merchant_stmt = _apply_dwd_filters(merchant_stmt, start_date, end_date, partner_id=partner_id)
             merchant_stmt = merchant_stmt.where(DwdOrderDetail.merchant_id.is_not(None)).group_by(DwdOrderDetail.order_date, DwdOrderDetail.merchant_id)
             merchant_rows = list(session.execute(merchant_stmt).mappings())
-        new_merchant_daily = defaultdict(int)
-        merchant_items_map = defaultdict(
-            lambda: {
-                "merchant_id": None,
-                "merchant_name": None,
-                "register_date": None,
-                "total_orders": 0,
-                "completed_orders": 0,
-                "cancelled_orders": 0,
-                "is_new_merchant": 0,
-            }
-        )
-        normalized_new_flag = (new_flag or "all").lower()
-        if normalized_new_flag not in {"all", "new", "old"}:
-            normalized_new_flag = "all"
-        for row in merchant_rows:
-            total_orders = int(row["total_orders"] or 0)
-            completed_orders = int(row["completed_orders"] or 0)
-            cancelled_orders = int(row["cancelled_orders"] or 0)
-            merchant_id_value = row["merchant_id"]
-            merchant_name_value = row["merchant_name"] or merchant_id_value
-            is_new_merchant = int(row["is_new_merchant"] or 0)
-            merchant_item = merchant_items_map[merchant_id_value]
-            merchant_item["merchant_id"] = merchant_id_value
-            merchant_item["merchant_name"] = merchant_name_value
-            merchant_item["register_date"] = _to_iso_date(row["register_date"]) or merchant_item["register_date"]
-            merchant_item["total_orders"] += total_orders
-            merchant_item["completed_orders"] += completed_orders
-            merchant_item["cancelled_orders"] += cancelled_orders
-            merchant_item["is_new_merchant"] = max(int(merchant_item["is_new_merchant"]), is_new_merchant)
-            if is_new_merchant == 1 and completed_orders > 0:
-                date_text = _to_iso_date(row["date"])
-                if date_text:
-                    new_merchant_daily[date_text] += completed_orders
-
-        merchant_items = []
-        for item in merchant_items_map.values():
-            is_new_merchant = int(item["is_new_merchant"] or 0)
-            if normalized_new_flag == "new" and is_new_merchant != 1:
-                continue
-            if normalized_new_flag == "old" and is_new_merchant == 1:
-                continue
-            merchant_items.append(item)
-
         return api_response(
-            {
-                "data_version": info.get("data_version"),
-                "latest_ready_month": info.get("latest_ready_month"),
-                "daily": [
-                    {"date": bucket_date, "completed_orders": completed_orders}
-                    for bucket_date, completed_orders in sorted(new_merchant_daily.items())
-                ],
-                "items": sorted(
-                    merchant_items,
-                    key=lambda item: (-int(item["completed_orders"] or 0), -int(item["total_orders"] or 0), str(item["merchant_id"] or "")),
-                ),
-            }
+            build_partner_merchants_payload(
+                merchant_rows=merchant_rows,
+                new_flag=new_flag,
+                info=info,
+                to_iso_date=_to_iso_date,
+            )
         )
 
     @app.get("/api/v1/partner/{partner_id}/merchant-like-users")
@@ -2411,25 +2133,14 @@ def create_app() -> FastAPI:
             ).select_from(DwdOrderDetail).join(RiderRoster, RiderRoster.rider_id == DwdOrderDetail.rider_id, isouter=True)
             stmt = _apply_dwd_filters(stmt, start_date, end_date, partner_id=partner_id)
             stmt = stmt.where(DwdOrderDetail.is_new_rider_order.is_(True), DwdOrderDetail.rider_id.is_not(None)).group_by(DwdOrderDetail.partner_id, DwdOrderDetail.rider_id)
-            items = [
-                {
-                    "partner_id": row["partner_id"],
-                    "partner_name": row["partner_name"],
-                    "rider_id": row["rider_id"],
-                    "rider_name": _coalesce_text(row["roster_rider_name"], _coalesce_text(row["dwd_rider_name"], row["rider_id"])),
-                    "hire_date": _to_iso_date(row["hire_date"]),
-                    "total_orders": int(row["total_orders"] or 0),
-                    "completed_orders": int(row["completed_orders"] or 0),
-                }
-                for row in session.execute(stmt).mappings()
-            ]
-        items.sort(key=lambda item: item["completed_orders"], reverse=True)
+            rows = list(session.execute(stmt).mappings())
         return api_response(
-            {
-                "data_version": info.get("data_version"),
-                "latest_ready_month": info.get("latest_ready_month"),
-                "items": items[:100],
-            }
+            build_direct_new_riders_payload(
+                rows=rows,
+                info=info,
+                coalesce_text=_coalesce_text,
+                to_iso_date=_to_iso_date,
+            )
         )
 
     @app.get("/api/v1/direct/new-merchants")
@@ -2448,26 +2159,14 @@ def create_app() -> FastAPI:
             ).select_from(DwdOrderDetail).join(MerchantRoster, MerchantRoster.merchant_id == DwdOrderDetail.merchant_id, isouter=True)
             stmt = _apply_dwd_filters(stmt, start_date, end_date, partner_id=partner_id)
             stmt = stmt.where(DwdOrderDetail.is_new_merchant_order.is_(True), DwdOrderDetail.merchant_id.is_not(None)).group_by(DwdOrderDetail.partner_id, DwdOrderDetail.merchant_id)
-            items = [
-                {
-                    "partner_id": row["partner_id"],
-                    "partner_name": row["partner_name"],
-                    "merchant_id": row["merchant_id"],
-                    "merchant_name": row["merchant_name"] or row["merchant_id"],
-                    "register_date": _to_iso_date(row["register_date"]),
-                    "total_orders": int(row["total_orders"] or 0),
-                    "completed_orders": int(row["completed_orders"] or 0),
-                    "completion_rate": safe_ratio(row["completed_orders"] or 0, row["total_orders"] or 0),
-                }
-                for row in session.execute(stmt).mappings()
-            ]
-        items.sort(key=lambda item: item["completed_orders"], reverse=True)
+            rows = list(session.execute(stmt).mappings())
         return api_response(
-            {
-                "data_version": info.get("data_version"),
-                "latest_ready_month": info.get("latest_ready_month"),
-                "items": items[:100],
-            }
+            build_direct_new_merchants_payload(
+                rows=rows,
+                info=info,
+                to_iso_date=_to_iso_date,
+                safe_ratio=safe_ratio,
+            )
         )
 
     @app.get("/api/v1/direct/merchant-comparison")
