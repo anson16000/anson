@@ -16,11 +16,33 @@
       <a class="nav-link" href="/alerts">诊断预警</a>
     </nav>
 
+    <script>
+      // Auto-inject partner_id and dates into nav links
+      document.addEventListener("DOMContentLoaded", () => {
+        try {
+          const data = JSON.parse(sessionStorage.getItem("dashboard_filters") || "{}");
+          const pid = data._shared_partner_id;
+          const sd = data._shared_start_date;
+          const ed = data._shared_end_date;
+          document.querySelectorAll(".top-nav .nav-link").forEach((a) => {
+            if (a.getAttribute("href").startsWith("/partner")) {
+              const url = new URL(a.href, window.location.origin);
+              if (pid) url.searchParams.set("partner_id", pid);
+              if (sd) url.searchParams.set("start_date", sd);
+              if (ed) url.searchParams.set("end_date", ed);
+              a.href = url.pathname + url.search;
+            }
+          });
+        } catch (_) {}
+      });
+    </script>
+
     <header class="page-header">
       <div class="page-header-main">
         <p class="page-tag">城市经营首页</p>
         <h1>城市经营</h1>
-        <p class="page-desc">这里只看经营全貌、经营收益、直营专项摘要和问题摘要。小时履约、主体明细和诊断预警已经拆到独立页面。</p>
+        <p class="page-desc">保留经营摘要、经营收益、经营专项摘要和问题摘要入口，细分专题请进入时段热力与履约页或主体分析页。</p>
+        <p class="page-mission">页面使命：看单城市经营结果与收入质量，判断是否需要下钻</p>
       </div>
       <div class="page-meta-grid">
         <div class="meta-card">
@@ -42,11 +64,12 @@
       <div class="toolbar-head">
         <div>
           <h2>筛选条件</h2>
-          <p>城市经营页只保留全局经营筛选。商家型用户阈值已经移到“主体分析”页面，局部筛选不再污染全页。</p>
+          <p>请选择日期范围和合伙人，当前页面用于查看经营全貌与经营专项摘要。</p>
         </div>
         <button id="refreshPartner" class="btn">刷新数据</button>
       </div>
-      <div class="toolbar-grid toolbar-grid-partner">
+      <div id="partnerFilterSummary" class="filter-summary"></div>
+      <div class="toolbar-grid">
         <label class="field">
           <span>开始日期</span>
           <input id="partnerStartDate" type="date">
@@ -55,10 +78,13 @@
           <span>结束日期</span>
           <input id="partnerEndDate" type="date">
         </label>
-        <label class="field">
+        <label class="field field-wide">
           <span>合伙人</span>
           <div id="partnerSelectControl"></div>
         </label>
+      </div>
+      <button id="partnerFilterToggle" class="filter-toggle">更多筛选</button>
+      <div id="partnerFilterMore" class="filter-more">
         <label class="field">
           <span>活跃完成单阈值</span>
           <input id="partnerActiveThreshold" type="number" min="1" value="1">
@@ -71,100 +97,39 @@
     </section>
 
     <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">经营摘要</p>
-          <h2>城市经营摘要</h2>
-        </div>
-      </div>
+      <div class="section-head"><div><p class="section-kicker">经营摘要</p><h2>城市经营摘要</h2></div></div>
       <div id="partnerConclusion" class="tags"></div>
-      <div id="partnerCards" class="cards summary-strip"></div>
-      <article class="report-card report-card-chart full-width-card">
-        <div class="card-head">
-          <h3>经营摘要趋势</h3>
-          <span>总订单 / 有效订单 / 完成订单 / 取消订单</span>
-        </div>
-        <div id="partnerDailyChart" class="chart tall"></div>
-      </article>
+      <div id="partnerCards" class="cards summary-strip">
+        <div class="kpi-tier kpi-tier-result"><span class="kpi-tier-label">结果指标</span></div>
+        <div class="kpi-tier kpi-tier-process"><span class="kpi-tier-label">过程指标</span></div>
+        <div class="kpi-tier kpi-tier-action"><span class="kpi-tier-label">动作指标</span></div>
+      </div>
     </section>
 
     <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">经营收益</p>
-          <h2>经营收益</h2>
-        </div>
-      </div>
-      <div class="report-grid report-grid-2">
-        <article class="report-card report-card-chart">
-          <div class="card-head">
-            <h3>收益趋势</h3>
-            <span>实际收款 / 骑手提成 / 经营利润</span>
-          </div>
-          <div id="partnerFinanceChart" class="chart"></div>
-        </article>
-        <article class="report-card">
-          <div class="card-head">
-            <h3>收益明细</h3>
-            <span>按日期查看收款、提成、补贴和经营利润</span>
-          </div>
-          <div id="partnerFinanceTable" class="table-wrap"></div>
-        </article>
-      </div>
+      <div class="section-head"><div><p class="section-kicker">经营趋势</p><h2>经营趋势</h2></div></div>
+      <article class="report-card"><div id="partnerDailyChart" class="chart tall"></div></article>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head"><div><p class="section-kicker">经营收益</p><h2>经营收益</h2></div></div>
+      <article class="report-card"><div id="partnerFinanceChart" class="chart"></div></article>
+      <article class="report-card"><div id="partnerFinanceTable" class="table-wrap"></div></article>
     </section>
 
     <section id="directSpecialSection" class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">直营专项</p>
-          <h2>直营专项摘要</h2>
-        </div>
-      </div>
+      <div class="section-head"><div><p class="section-kicker">经营专项</p><h2>经营专项摘要</h2></div></div>
       <div id="directSpecialTags" class="tags"></div>
-      <div id="directSpecialCards" class="cards summary-strip"></div>
-      <article class="report-card">
-        <div class="card-head">
-          <h3>直营专项入口</h3>
-          <span>重型时段分析与主体分析已拆分到独立页面</span>
-        </div>
-        <div class="section-tabs">
-          <a class="tab-link" href="/partner/hourly">查看时段热力与履约</a>
-          <a class="tab-link" href="/partner/entities">查看主体分析</a>
-        </div>
-      </article>
+      <div id="directSpecialCards" class="cards summary-strip">
+        <div class="kpi-tier kpi-tier-result"><span class="kpi-tier-label">结果指标</span></div>
+        <div class="kpi-tier kpi-tier-process"><span class="kpi-tier-label">过程指标</span></div>
+      </div>
     </section>
 
     <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">问题摘要</p>
-          <h2>问题摘要与下一步入口</h2>
-        </div>
-      </div>
+      <div class="section-head"><div><p class="section-kicker">问题摘要</p><h2>问题摘要入口</h2></div></div>
       <div id="issueSummaryTags" class="tags"></div>
-      <div class="report-grid report-grid-3">
-        <article class="report-card">
-          <div class="card-head">
-            <h3>时段与履约</h3>
-          </div>
-          <p class="page-desc">查看小时运力、热力图、准时率、SLA 履约率和时段异常定位。</p>
-          <a class="tab-link" href="/partner/hourly">进入时段热力与履约</a>
-        </article>
-        <article class="report-card">
-          <div class="card-head">
-            <h3>主体与名单</h3>
-          </div>
-          <p class="page-desc">查看新骑手、新商家、用户主体识别、名单明细和骑手提成明细。</p>
-          <a class="tab-link" href="/partner/entities">进入主体分析</a>
-        </article>
-        <article class="report-card">
-          <div class="card-head">
-            <h3>风险与预警</h3>
-          </div>
-          <p class="page-desc">查看关注加盟商、风险加盟商、健康度评分和波动预警。</p>
-          <a class="tab-link" href="/alerts">进入诊断预警</a>
-        </article>
-      </div>
+      <div id="partnerDrillLinks" class="drill-links"></div>
     </section>
   </div>
 

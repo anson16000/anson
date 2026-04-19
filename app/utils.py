@@ -356,3 +356,23 @@ def infer_order_month_from_value(value: Any) -> str | None:
     if not parsed:
         return None
     return parsed.strftime("%Y-%m")
+
+
+def repair_mojibake_text(value: Any) -> str | None:
+    text = clean_text(value)
+    if not text:
+        return None
+    if not re.search(r"[À-ÿ]", text):
+        return text
+    try:
+        repaired = text.encode("latin1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return text
+    repaired = clean_text(repaired)
+    if not repaired:
+        return text
+    repaired_cjk = len(re.findall(r"[\u4e00-\u9fff]", repaired))
+    original_cjk = len(re.findall(r"[\u4e00-\u9fff]", text))
+    if repaired_cjk >= original_cjk:
+        return repaired
+    return text

@@ -16,25 +16,37 @@
       <a class="nav-link active" href="/alerts">诊断预警</a>
     </nav>
 
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        try {
+          const data = JSON.parse(sessionStorage.getItem("dashboard_filters") || "{}");
+          const pid = data._shared_partner_id;
+          const sd = data._shared_start_date;
+          const ed = data._shared_end_date;
+          document.querySelectorAll(".top-nav .nav-link").forEach((a) => {
+            if (a.getAttribute("href").startsWith("/partner")) {
+              const url = new URL(a.href, window.location.origin);
+              if (pid) url.searchParams.set("partner_id", pid);
+              if (sd) url.searchParams.set("start_date", sd);
+              if (ed) url.searchParams.set("end_date", ed);
+              a.href = url.pathname + url.search;
+            }
+          });
+        } catch (_) {}
+      });
+    </script>
+
     <header class="page-header">
       <div class="page-header-main">
-        <p class="page-tag">风险、关注与整改优先级</p>
+        <p class="page-tag">风险、预警与诊断专题</p>
         <h1>诊断预警</h1>
-        <p class="page-desc">专门承接关注加盟商、风险加盟商、健康度评分详情、波动预警和问题清单，不再和全国趋势、区域排名混排。</p>
+        <p class="page-desc">专门查看关注加盟商、风险加盟商、健康度详情与波动预警，帮助安排整改优先级。</p>
+        <p class="page-mission">页面使命：看哪些对象异常、异常程度、优先处理顺序</p>
       </div>
       <div class="page-meta-grid">
-        <div class="meta-card">
-          <span>最后导入时间</span>
-          <strong id="alertslastImportTime">-</strong>
-        </div>
-        <div class="meta-card">
-          <span>最新数据日期</span>
-          <strong id="alertslatestDataDate">-</strong>
-        </div>
-        <div class="meta-card">
-          <span>数据版本</span>
-          <strong id="alertsdataVersion">-</strong>
-        </div>
+        <div class="meta-card"><span>最后导入时间</span><strong id="alertslastImportTime">-</strong></div>
+        <div class="meta-card"><span>最新数据日期</span><strong id="alertslatestDataDate">-</strong></div>
+        <div class="meta-card"><span>数据版本</span><strong id="alertsdataVersion">-</strong></div>
       </div>
     </header>
 
@@ -42,98 +54,54 @@
       <div class="toolbar-head">
         <div>
           <h2>筛选条件</h2>
-          <p>诊断预警页继承全国筛选能力，继续限制最多 31 天，并专注风险、关注、波动和健康度详情。</p>
+          <p>诊断预警页所有模块使用同一套筛选条件，支持日期、省、市、区县和合伙人联动。</p>
         </div>
         <button id="refreshAlerts" class="btn">刷新数据</button>
       </div>
-      <div class="toolbar-grid toolbar-grid-admin">
-        <label class="field">
-          <span>开始日期</span>
-          <input id="alertsStartDate" type="date">
-        </label>
-        <label class="field">
-          <span>结束日期</span>
-          <input id="alertsEndDate" type="date">
-        </label>
-        <label class="field">
-          <span>省份</span>
-          <div id="alertsProvinceControl"></div>
-        </label>
-        <label class="field">
-          <span>城市</span>
-          <div id="alertsCityControl"></div>
-        </label>
-        <label class="field">
-          <span>区县</span>
-          <div id="alertsDistrictControl"></div>
-        </label>
-        <label class="field">
-          <span>合伙人</span>
-          <div id="alertsPartnerControl"></div>
-        </label>
-        <label class="field">
-          <span>活跃完成单阈值</span>
-          <input id="alertsActiveThreshold" type="number" min="1" value="1">
-        </label>
+      <div id="alertsFilterSummary" class="filter-summary"></div>
+      <div class="toolbar-grid">
+        <label class="field"><span>开始日期</span><input id="alertsStartDate" type="date"></label>
+        <label class="field"><span>结束日期</span><input id="alertsEndDate" type="date"></label>
+        <label class="field"><span>省份</span><div id="alertsProvinceControl"></div></label>
+        <label class="field"><span>城市</span><div id="alertsCityControl"></div></label>
+        <label class="field"><span>区县</span><div id="alertsDistrictControl"></div></label>
+        <label class="field"><span>合伙人</span><div id="alertsPartnerControl"></div></label>
+      </div>
+      <button id="alertsFilterToggle" class="filter-toggle">更多筛选</button>
+      <div id="alertsFilterMore" class="filter-more">
+        <label class="field"><span>活跃完成单阈值</span><input id="alertsActiveThreshold" type="number" min="1" value="1"></label>
       </div>
     </section>
 
     <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">诊断摘要</p>
-          <h2>风险与关注摘要</h2>
-        </div>
-      </div>
+      <div class="section-head"><div><p class="section-kicker">诊断摘要</p><h2>诊断摘要</h2></div></div>
       <div id="alertsConclusion" class="tags"></div>
-      <div id="alertsCards" class="cards summary-strip"></div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">关注与风险</p>
-          <h2>关注加盟商与风险加盟商</h2>
-        </div>
-      </div>
-      <div class="report-grid report-grid-2">
-        <article class="report-card">
-          <div class="card-head">
-            <h3>关注加盟商</h3>
-          </div>
-          <div id="alertsFocusTable" class="table-wrap"></div>
-        </article>
-        <article class="report-card">
-          <div class="card-head">
-            <h3>风险加盟商</h3>
-          </div>
-          <div id="alertsRiskTable" class="table-wrap"></div>
-        </article>
+      <div id="alertsDrillLinks" class="drill-links"></div>
+      <div id="alertsCards" class="cards summary-strip">
+        <div class="kpi-tier kpi-tier-result"><span class="kpi-tier-label">结果指标</span></div>
+        <div class="kpi-tier kpi-tier-process"><span class="kpi-tier-label">过程指标</span></div>
+        <div class="kpi-tier kpi-tier-action"><span class="kpi-tier-label">动作指标</span></div>
       </div>
     </section>
 
     <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">健康度详情</p>
-          <h2>健康度评分详情</h2>
-        </div>
-      </div>
-      <article class="report-card">
-        <div id="alertsHealthTable" class="table-wrap"></div>
-      </article>
+      <div class="section-head"><div><p class="section-kicker">关注加盟商</p><h2>关注加盟商</h2></div></div>
+      <article class="report-card"><div id="alertsFocusTable" class="table-wrap"></div></article>
     </section>
 
     <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">波动预警</p>
-          <h2>波动预警</h2>
-        </div>
-      </div>
-      <article class="report-card">
-        <div id="alertsFluctuationTable" class="table-wrap"></div>
-      </article>
+      <div class="section-head"><div><p class="section-kicker">风险加盟商</p><h2>风险加盟商</h2></div></div>
+      <article class="report-card"><div id="alertsRiskTable" class="table-wrap"></div></article>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head"><div><p class="section-kicker">健康度详情</p><h2>健康度详情</h2></div></div>
+      <article class="report-card"><div id="alertsHealthTable" class="table-wrap"></div></article>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head"><div><p class="section-kicker">波动预警</p><h2>波动预警</h2></div></div>
+      <article class="report-card"><div id="alertsFluctuationTable" class="table-wrap"></div></article>
     </section>
   </div>
 

@@ -1,62 +1,111 @@
-import { $, requireElement } from "/static/ui/base.js";
+import { requireElement } from "/static/ui/base.js";
 
 export const MAX_QUERY_DAYS = 31;
 
-export function toDateInputValue(value) {
-  if (!value) return "";
-  const date = new Date(`${value}T00:00:00`);
-  if (!Number.isFinite(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
+function toDateOnly(value) {
+  return value ? new Date(`${value}T00:00:00`) : null;
 }
 
-export function setDateRange(startSelector, endSelector, latestDateText) {
-  const startInput = $(startSelector);
-  const endInput = $(endSelector);
-  if (!startInput || !endInput) return;
-  if (startInput.value && endInput.value) return;
-
-  const latestDate = latestDateText ? new Date(`${latestDateText}T00:00:00`) : new Date();
-  if (!Number.isFinite(latestDate.getTime())) return;
-
-  const startDate = new Date(latestDate);
-  startDate.setDate(startDate.getDate() - 30);
-
-  if (!endInput.value) endInput.value = latestDate.toISOString().slice(0, 10);
-  if (!startInput.value) startInput.value = startDate.toISOString().slice(0, 10);
+export function setDateRange(startSelector, endSelector, latestDate) {
+  const startInput = requireElement(startSelector);
+  const endInput = requireElement(endSelector);
+  if (!latestDate) return;
+  endInput.value = latestDate;
+  if (!startInput.value) {
+    startInput.value = latestDate;
+  }
 }
 
-function readDateValue(value) {
-  if (!value) return null;
-  const date = new Date(`${value}T00:00:00`);
-  return Number.isFinite(date.getTime()) ? date : null;
-}
-
-export function validateDateRange(startDateText, endDateText, maxDays = MAX_QUERY_DAYS) {
-  const startDate = readDateValue(startDateText);
-  const endDate = readDateValue(endDateText);
-  if (!startDate || !endDate) {
+export function validateDateRange(startValue, endValue, maxDays = MAX_QUERY_DAYS) {
+  if (!startValue || !endValue) {
     throw new Error("请选择开始日期和结束日期。");
+  }
+
+  const startDate = toDateOnly(startValue);
+  const endDate = toDateOnly(endValue);
+  if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    throw new Error("日期格式无效，请重新选择。");
   }
   if (startDate > endDate) {
     throw new Error("开始日期不能晚于结束日期。");
   }
-  const dayCount = Math.floor((endDate - startDate) / 86400000) + 1;
-  if (dayCount > maxDays) {
+
+  const diffDays = Math.floor((endDate - startDate) / 86400000) + 1;
+  if (diffDays > maxDays) {
     throw new Error(`单次查询最多支持 ${maxDays} 天，请缩小日期范围。`);
   }
+
   return {
-    startDate,
-    endDate,
-    dayCount,
-    startDateText,
-    endDateText,
+    startDateText: startValue,
+    endDateText: endValue,
+    diffDays,
   };
 }
 
 export function validateDateRangeBySelectors(startSelector, endSelector, maxDays = MAX_QUERY_DAYS) {
-  return validateDateRange(
-    requireElement(startSelector, "开始日期").value,
-    requireElement(endSelector, "结束日期").value,
-    maxDays,
-  );
+  const startInput = requireElement(startSelector);
+  const endInput = requireElement(endSelector);
+  return validateDateRange(startInput.value, endInput.value, maxDays);
+}
+
+function toDateOnlyStr(baseDate, offsetDays) {
+  const d = new Date(`${baseDate}T00:00:00`);
+  d.setDate(d.getDate() + offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export function addDateShortcuts(startSelector, endSelector, latestDate) {
+  if (!latestDate) return;
+  const startInput = requireElement(startSelector);
+  const endInput = requireElement(endSelector);
+  const parentLabel = startInput.closest("label.field");
+  if (!parentLabel) return;
+
+  // Avoid duplicate insertion on repeated populateFilters calls
+  const existing = parentLabel.parentElement.querySelector(".date-shortcuts");
+  if (existing) return;
+
+  const shortcuts = [
+    { label: "今天", days: 0 },
+    { label: "昨天", days: 1 },
+    { label: "近7天", days: 6 },
+    { label: "近30天", days: 29 },
+  ];
+
+  const container = document.createElement("div");
+  container.className = "date-shortcuts";
+
+  const buttons = shortcuts.map(({ label, days }) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "date-shortcut-btn";
+    btn.textContent = label;
+    btn.dataset.days = days;
+    btn.addEventListener("click", () => {
+      const end = latestDate;
+      const start = days === 0 ? latestDate : toDateOnlyStr(latestDate, -days);
+      startInput.value = start;
+      endInput.value = end;
+      buttons.forEach((b) => b.classList.toggle("active", b === btn));
+      startInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    container.appendChild(btn);
+    return btn;
+  });
+
+  parentLabel.parentElement.insertBefore(container, parentLabel);
+
+  // Auto-highlight matching shortcut after initial setDateRange
+  requestAnimationFrame(() => {
+    const sv = startInput.value;
+    const ev = endInput.value;
+    if (sv && ev) {
+      const diff = Math.floor((toDateOnly(ev) - toDateOnly(sv)) / 86400000);
+      const match = buttons.find((b) => Number(b.dataset.days) === diff);
+      if (match) match.classList.add("active");
+    }
+  });
 }

@@ -50,3 +50,30 @@ export function showError(error) {
   console.error(error);
   window.alert(error?.message || "页面加载失败，请稍后重试。");
 }
+
+export function renderSystemMeta(meta, { prefix = "" } = {}) {
+  const system = meta?.system || {};
+  setText(`#${prefix}lastImportTime`, formatDateTime(system.last_import_time));
+  setText(`#${prefix}latestDataDate`, formatDate(system.latest_data_date));
+  setText(`#${prefix}dataVersion`, system.data_version || system.latest_ready_month || "-");
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return String(value);
+  return date.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

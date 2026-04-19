@@ -1,8 +1,11 @@
 import {
   MAX_QUERY_DAYS,
+  addDateShortcuts,
   api,
   createPageController,
   createPartnerRegionFilterController,
+  loadFilters,
+  renderFilterSummary,
   renderSystemMeta,
   requireElement,
   setDateRange,
@@ -12,10 +15,15 @@ import {
   renderAdminConclusion,
   renderAdminSummaryCards,
   renderAdminTrend,
+  renderAnomalySummary,
   renderNewPartnerTable,
+  renderPartnerDailyComparison,
   renderPartnerTierTable,
   renderRegionRanking,
 } from "/static/modules/admin-sections.js";
+
+const PAGE_KEY = "admin";
+const savedFilters = loadFilters(PAGE_KEY);
 
 const filtersController = createPartnerRegionFilterController({
   selectors: {
@@ -67,20 +75,63 @@ const controller = createPageController({
   populateFilters: async (meta) => {
     renderSystemMeta(meta, { prefix: "admin" });
     setDateRange("#adminStartDate", "#adminEndDate", meta.system.latest_data_date);
+    addDateShortcuts("#adminStartDate", "#adminEndDate", meta.system.latest_data_date);
     filtersController.setPartners(meta.partners || []);
+    // 恢复保存的筛选条件
+    if (savedFilters.province) filtersController.filters.province = savedFilters.province;
+    if (savedFilters.city) filtersController.filters.city = savedFilters.city;
+    if (savedFilters.district) filtersController.filters.district = savedFilters.district;
+    if (savedFilters.partner_id) filtersController.filters.partner_id = savedFilters.partner_id;
+    filtersController.render();
+    if (savedFilters.active_completed_threshold) requireElement("#activeCompletedThreshold").value = savedFilters.active_completed_threshold;
+    if (savedFilters.ranking_level) requireElement("#rankingLevel").value = savedFilters.ranking_level;
+    if (savedFilters.partner_tiers) requireElement("#partnerTierInput").value = savedFilters.partner_tiers;
   },
   bindEvents: ({ loadPage, bindRefresh, bindChange }) => {
     bindRefresh("#refreshAdmin");
     bindChange(["#adminStartDate", "#adminEndDate", "#activeCompletedThreshold", "#rankingLevel", "#partnerTierInput"]);
+    // 更多筛选折叠
+    requireElement("#adminFilterToggle").addEventListener("click", () => {
+      const toggle = requireElement("#adminFilterToggle");
+      const more = requireElement("#adminFilterMore");
+      toggle.classList.toggle("active");
+      more.classList.toggle("show");
+      toggle.textContent = more.classList.contains("show") ? "收起筛选" : "更多筛选";
+    });
+  },
+  onSaveFilters: (filters) => {
+    const labelMap = {
+      province: "省份",
+      city: "城市",
+      district: "区县",
+      partner_id: "合伙人",
+      active_completed_threshold: "活跃完成单阈值",
+      ranking_level: "区域排名维度",
+    };
+    renderFilterSummary("#adminFilterSummary", filters, labelMap);
+    // Save shared state for cross-page navigation
+    try {
+      const data = JSON.parse(sessionStorage.getItem("dashboard_filters") || "{}");
+      if (filters.partner_id) data._shared_partner_id = filters.partner_id;
+      if (filters.city) data._shared_city = filters.city;
+      if (filters.start_date) data._shared_start_date = filters.start_date;
+      if (filters.end_date) data._shared_end_date = filters.end_date;
+      sessionStorage.setItem("dashboard_filters", JSON.stringify(data));
+    } catch (_) {}
   },
   loadData: async (filters) => {
     const metrics = await api("/api/v1/admin/metrics", filters);
     renderAdminConclusion(metrics);
     renderAdminSummaryCards(metrics);
+    renderAnomalySummary(metrics);
     renderAdminTrend(metrics);
     renderRegionRanking(metrics.region_ranking || []);
     renderPartnerTierTable(metrics.partner_tier_stats || []);
-    renderNewPartnerTable(metrics.new_partner_performance || []);
+    renderPartnerDailyComparison(metrics.partner_recent_daily || []);
+    const allNewPartners = metrics.new_partner_performance || [];
+    renderNewPartnerTable(allNewPartners.filter((item) => item.window_label === "30日表现"), "#newPartnerTable30", "30日暂无数据");
+    renderNewPartnerTable(allNewPartners.filter((item) => item.window_label === "60日表现"), "#newPartnerTable60", "60日暂无数据");
+    renderNewPartnerTable(allNewPartners.filter((item) => item.window_label === "90日表现"), "#newPartnerTable90", "90日暂无数据");
   },
   onError: showError,
 });
