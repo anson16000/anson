@@ -7,7 +7,25 @@ import {
   renderLineChart,
   renderTable,
   renderTags,
+  setHtml,
 } from "/static/common.js";
+
+function getSharedPartnerParam() {
+  try {
+    const data = JSON.parse(sessionStorage.getItem("dashboard_filters") || "{}");
+    const pid = data._shared_partner_id;
+    const sd = data._shared_start_date;
+    const ed = data._shared_end_date;
+    const params = new URLSearchParams();
+    if (pid) params.set("partner_id", pid);
+    if (sd) params.set("start_date", sd);
+    if (ed) params.set("end_date", ed);
+    const str = params.toString();
+    return str ? `?${str}` : "";
+  } catch (_) {
+    return "";
+  }
+}
 
 export function renderHourlySummary(overview, hourly) {
   const summary = overview.summary || {};
@@ -20,14 +38,20 @@ export function renderHourlySummary(overview, hourly) {
   ];
   if (peakHour) tags.push(`订单高峰在 ${peakHour.hour} 点，总订单 ${formatNumber(peakHour.total_orders)}`);
   renderTags("#hourlyConclusion", tags);
-  renderCards("#hourlyCards", [
-    { label: "总订单", value: formatNumber(summary.total_orders) },
-    { label: "有效订单", value: formatNumber(summary.valid_orders) },
+  setHtml("#hourlyDrillLinks", `
+    <a class="drill-link" href="/partner/entities${getSharedPartnerParam()}">主体分析：查看涉及骑手和商家明细</a>
+    <a class="drill-link" href="/alerts${getSharedPartnerParam()}">诊断预警：查看异常对象和风险名单</a>
+  `);
+  renderCards("#hourlyCards .kpi-tier-result", [
     { label: "完成订单", value: formatNumber(summary.completed_orders) },
-    { label: "取消订单", value: formatNumber(summary.cancelled_orders) },
-    { label: "完成率", value: formatPercent(summary.completion_rate) },
+    { label: "完成订单/有效订单", value: formatPercent(summary.completed_orders / summary.valid_orders || 0) },
     { label: "准时率", value: formatPercent(summary.on_time_rate) },
     { label: "SLA 履约率", value: formatPercent(summary.sla_on_time_rate) },
+  ]);
+  renderCards("#hourlyCards .kpi-tier-process", [
+    { label: "总订单", value: formatNumber(summary.total_orders) },
+    { label: "有效订单", value: formatNumber(summary.valid_orders) },
+    { label: "取消订单", value: formatNumber(summary.cancelled_orders) },
     { label: "SLA 超时率", value: formatPercent(summary.sla_overtime_rate) },
   ]);
 }
@@ -54,7 +78,7 @@ export function renderHourlyCharts(hourly) {
     summary,
     { emptyText: "当前筛选范围暂无小时运力数据" },
   );
-  renderHeatmap("#hourlyCompletedHeatmap", hourly.items || [], "completed_orders", "count");
-  renderHeatmap("#hourlyCancelledHeatmap", hourly.items || [], "cancelled_orders", "cancel");
-  renderHeatmap("#hourlyCancelRateHeatmap", hourly.items || [], "cancel_rate", "rate");
+  renderHeatmap("#hourlyCompletedHeatmap", hourly.items || [], "completed_orders", "count", { emptyText: "暂无完成订单热力图数据" });
+  renderHeatmap("#hourlyCancelledHeatmap", hourly.items || [], "cancelled_orders", "cancel", { emptyText: "暂无取消订单热力图数据" });
+  renderHeatmap("#hourlyCancelRateHeatmap", hourly.items || [], "cancel_rate", "rate", { emptyText: "暂无取消率热力图数据" });
 }

@@ -6,10 +6,29 @@ import {
   renderCards,
   renderTable,
   renderTags,
+  setHtml,
 } from "/static/common.js";
+
+function getSharedPartnerParam() {
+  try {
+    const data = JSON.parse(sessionStorage.getItem("dashboard_filters") || "{}");
+    const pid = data._shared_partner_id;
+    const sd = data._shared_start_date;
+    const ed = data._shared_end_date;
+    const params = new URLSearchParams();
+    if (pid) params.set("partner_id", pid);
+    if (sd) params.set("start_date", sd);
+    if (ed) params.set("end_date", ed);
+    const str = params.toString();
+    return str ? `?${str}` : "";
+  } catch (_) {
+    return "";
+  }
+}
 
 function partnerColumns(includeScore = false) {
   const columns = [
+    { key: "partner_id", label: "合伙人ID", sortType: "string" },
     { key: "partner_name", label: "合伙人" },
     { key: "total_orders", label: "总订单", render: formatNumber, align: "right" },
     { key: "valid_orders", label: "有效订单", render: formatNumber, align: "right" },
@@ -37,11 +56,19 @@ export function renderAlertsSummary(metrics, health) {
   ];
   if ((summary.red_count || 0) > 0) tags.push("建议优先处理风险加盟商和波动预警");
   renderTags("#alertsConclusion", tags);
-  renderCards("#alertsCards", [
-    { label: "健康加盟商", value: formatNumber(summary.green_count) },
-    { label: "关注加盟商", value: formatNumber(summary.yellow_count) },
+  setHtml("#alertsDrillLinks", `
+    <a class="drill-link" href="/partner/entities${getSharedPartnerParam()}">主体分析：查看贡献结构和关键名单</a>
+    <a class="drill-link" href="/partner/hourly${getSharedPartnerParam()}">时段热力：查看履约异常时段</a>
+  `);
+  renderCards("#alertsCards .kpi-tier-result", [
     { label: "风险加盟商", value: formatNumber(summary.red_count) },
     { label: "平均健康度", value: formatDecimal(summary.average_score) },
+  ]);
+  renderCards("#alertsCards .kpi-tier-process", [
+    { label: "健康加盟商", value: formatNumber(summary.green_count) },
+    { label: "关注加盟商", value: formatNumber(summary.yellow_count) },
+  ]);
+  renderCards("#alertsCards .kpi-tier-action", [
     { label: "关注清单数", value: formatNumber((metrics.focus_partner_items || []).length) },
     { label: "风险清单数", value: formatNumber((metrics.risk_partner_items || []).length) },
   ]);
@@ -53,6 +80,7 @@ export function renderAlertsTables(metrics, health, fluctuation) {
   renderTable(
     "#alertsHealthTable",
     [
+      { key: "partner_id", label: "合伙人ID", sortType: "string" },
       { key: "partner_name", label: "合伙人" },
       { key: "total_score", label: "总分", render: formatDecimal, align: "right" },
       { key: "label", label: "状态" },
@@ -64,6 +92,7 @@ export function renderAlertsTables(metrics, health, fluctuation) {
   renderTable(
     "#alertsFluctuationTable",
     [
+      { key: "partner_id", label: "合伙人ID", sortType: "string" },
       { key: "partner_name", label: "合伙人" },
       { key: "city_level", label: "城市档位" },
       { key: "latest_completed_orders", label: "最新完成订单", render: formatNumber, align: "right" },

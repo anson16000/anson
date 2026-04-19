@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, literal_column, select
 
 from app.api_support import (
     api_response,
@@ -60,6 +60,7 @@ from app.services.partner_metrics import (
     build_partner_overview_payload,
 )
 from app.services.partner_rosters import build_partner_merchants_payload, build_partner_riders_payload
+from app.utils import repair_mojibake_text
 
 
 def _calc_duration_minutes(start_value: datetime | None, end_value: datetime | None) -> float | None:
@@ -502,6 +503,10 @@ def _merge_partner_directory(partner_rows: list[Any], ads_partner_rows: list[Any
             merged.update({k: v for k, v in ads_map[current_partner_id].items() if v is not None})
         if current_partner_id in roster_map:
             merged.update({k: v for k, v in roster_map[current_partner_id].items() if v is not None})
+        merged["partner_name"] = repair_mojibake_text(merged.get("partner_name")) or current_partner_id
+        merged["province"] = repair_mojibake_text(merged.get("province"))
+        merged["city"] = repair_mojibake_text(merged.get("city"))
+        merged["district"] = repair_mojibake_text(merged.get("district"))
         partners_map[current_partner_id] = merged
 
     return sorted(partners_map.values(), key=lambda item: (item.get("partner_name") or "", item.get("partner_id") or ""))
@@ -519,6 +524,34 @@ def _build_order_summary(total_orders: float, valid_orders: float, completed_ord
         "cancel_rate": safe_ratio(cancelled_orders, total_orders),
         **extra_fields,
     }
+
+
+def _calc_partner_recent_daily(session_factory, ranking_level: str) -> list[dict[str, Any]]:
+    if ranking_level != "all":
+        return []
+    with session_scope(session_factory) as session:
+        rows = list(
+            session.execute(
+                select(
+                    DwdOrderDetail.partner_id,
+                    func.max(DwdOrderDetail.partner_name).label("partner_name"),
+                    DwdOrderDetail.order_date.label("date"),
+                    _sum_bool(DwdOrderDetail.is_completed.is_(True)).label("completed_orders"),
+                )
+                .where(DwdOrderDetail.order_date >= func.date_sub(func.current_date(), literal_column("3")))
+                .where(DwdOrderDetail.order_date <= func.current_date())
+                .group_by(DwdOrderDetail.partner_id, DwdOrderDetail.order_date)
+            ).mappings()
+        )
+    return [
+        {
+            "partner_id": row["partner_id"],
+            "partner_name": row["partner_name"] or row["partner_id"],
+            "date": row["date"].isoformat() if hasattr(row["date"], "isoformat") else str(row["date"]),
+            "completed_orders": int(row["completed_orders"] or 0),
+        }
+        for row in rows
+    ]
 
 
 def create_app() -> FastAPI:
@@ -881,6 +914,7 @@ def create_app() -> FastAPI:
                 region_ranking_rows.append(
                     {
                         "region": bucket["partner_name"] or bucket["partner_id"] or "未分配区域",
+                        "partner_id": bucket["partner_id"],
                         "total_orders": total_orders,
                         "valid_orders": valid_orders,
                         "valid_completed_orders": completed_orders,
@@ -899,6 +933,7 @@ def create_app() -> FastAPI:
         else:
             region_stmt = select(
                 func.max(DwdOrderDetail.partner_name).label("partner_name"),
+                func.max(DwdOrderDetail.partner_id).label("partner_id"),
                 func.max(DwdOrderDetail.province).label("province"),
                 func.max(DwdOrderDetail.city).label("city"),
                 func.count().label("total_orders"),
@@ -935,6 +970,7 @@ def create_app() -> FastAPI:
                 region_ranking_rows.append(
                     {
                         "region": region_label,
+                        "partner_id": row.get("partner_id"),
                         "total_orders": total_orders,
                         "valid_orders": valid_orders,
                         "valid_completed_orders": completed_orders,
@@ -1170,6 +1206,7 @@ def create_app() -> FastAPI:
                     key=lambda item: item["completed_orders"],
                     reverse=True,
                 )[:50],
+                "partner_recent_daily": _calc_partner_recent_daily(session_factory, ranking_level),
                 "partner_tier_stats": partner_tier_stats,
                 "focus_partner_items": focus_partner_items,
                 "risk_partner_items": risk_partner_items,

@@ -1,15 +1,14 @@
-import { $, escapeHtml, formatNumber } from "/static/ui/base.js";
+import { escapeHtml, formatNumber, requireElement } from "/static/ui/base.js";
 
-export function renderLineChart(containerId, labels, series) {
-  const container = $(containerId);
-  if (!container) return;
-  if (!labels.length || !series.length) {
-    container.innerHTML = '<div class="empty empty-inline">暂无趋势数据</div>';
+export function renderLineChart(selector, labels, series, options = {}) {
+  const host = requireElement(selector);
+  if (!labels?.length || !series?.length) {
+    host.innerHTML = `<div class="empty empty-inline">${escapeHtml(options.emptyText || "暂无趋势数据")}</div>`;
     return;
   }
 
   const width = 760;
-  const height = container.classList.contains("tall") ? 320 : 240;
+  const height = host.classList.contains("tall") ? 320 : 240;
   const margin = { top: 28, right: 16, bottom: 34, left: 52 };
   const chartWidth = width - margin.left - margin.right;
   const chartHeight = height - margin.top - margin.bottom;
@@ -71,7 +70,7 @@ export function renderLineChart(containerId, labels, series) {
     })
     .join("");
 
-  container.innerHTML = `
+  host.innerHTML = `
     <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
       ${gridLines}
       <line x1="${margin.left}" y1="${margin.top + chartHeight}" x2="${width - margin.right}" y2="${margin.top + chartHeight}" stroke="#cfd8e3" stroke-width="1" />
@@ -82,28 +81,21 @@ export function renderLineChart(containerId, labels, series) {
   `;
 }
 
-function heatColor(value, max, mode) {
-  if (!max || value <= 0) return "#f5f7f9";
-  const ratio = Math.max(0.15, value / max);
-  if (mode === "cancel") return `rgba(196, 132, 37, ${Math.min(ratio, 0.95)})`;
-  if (mode === "rate") return `rgba(91, 112, 139, ${Math.min(ratio, 0.95)})`;
-  return `rgba(33, 115, 70, ${Math.min(ratio, 0.95)})`;
-}
-
-export function renderHeatmap(containerId, items, valueKey, mode = "count") {
-  const container = $(containerId);
-  if (!container) return;
-  if (!items.length) {
-    container.innerHTML = '<div class="empty empty-inline">暂无热力图数据</div>';
+export function renderHeatmap(selector, items, metricKey, mode = "count", options = {}) {
+  const host = requireElement(selector);
+  if (!items?.length) {
+    host.innerHTML = `<div class="empty empty-inline">${escapeHtml(options.emptyText || "暂无热力图数据")}</div>`;
     return;
   }
 
   const dates = [...new Set(items.map((item) => item.date))].sort();
   const hours = Array.from({ length: 24 }, (_, hour) => hour);
-  const valueMap = new Map(items.map((item) => [`${item.date}-${item.hour}`, Number(item[valueKey] || 0)]));
+  const valueMap = new Map(items.map((item) => [`${item.date}-${item.hour}`, Number(item[metricKey] || 0)]));
   const maxValue = Math.max(...Array.from(valueMap.values()), 1);
 
-  let cells = `<div class="heatmap-label sticky-col sticky-row"></div>${hours.map((hour) => `<div class="heatmap-label sticky-row">${hour}</div>`).join("")}`;
+  let cells = `<div class="heatmap-label sticky-col sticky-row"></div>${hours
+    .map((hour) => `<div class="heatmap-label sticky-row">${hour}</div>`)
+    .join("")}`;
   dates.forEach((date) => {
     cells += `<div class="heatmap-label sticky-col">${escapeHtml(String(date).slice(5))}</div>`;
     hours.forEach((hour) => {
@@ -113,5 +105,19 @@ export function renderHeatmap(containerId, items, valueKey, mode = "count") {
     });
   });
 
-  container.innerHTML = `<div class="heatmap"><div class="heatmap-grid" style="grid-template-columns: 88px repeat(${hours.length}, minmax(38px, 1fr));">${cells}</div></div>`;
+  host.innerHTML = `<div class="heatmap"><div class="heatmap-grid" style="grid-template-columns: 88px repeat(${hours.length}, minmax(38px, 1fr));">${cells}</div></div>`;
+}
+
+function heatColor(value, maxValue, mode) {
+  if (!value) return "#f5f5f5";
+  const ratio = value / maxValue;
+  if (mode === "rate") {
+    if (ratio > 0.8) return "#c75146";
+    if (ratio > 0.5) return "#c88425";
+    return "#217346";
+  }
+  if (ratio > 0.8) return "#1b7849";
+  if (ratio > 0.5) return "#5fa37a";
+  if (ratio > 0.25) return "#a8d4b8";
+  return "#d4edda";
 }

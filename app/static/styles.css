@@ -118,6 +118,16 @@ h3 {
   font-size: 14px;
 }
 
+.page-mission {
+  margin: 6px 0 0;
+  padding: 4px 0 0;
+  color: var(--excel);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  border-top: 1px dashed var(--excel-soft);
+}
+
 .page-meta-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -196,6 +206,38 @@ h3 {
 
 .field-wide {
   grid-column: span 2;
+}
+
+.date-shortcuts {
+  display: flex;
+  gap: 4px;
+  align-items: end;
+  padding-bottom: 0;
+}
+
+.date-shortcut-btn {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.date-shortcut-btn:hover {
+  border-color: var(--excel);
+  color: var(--excel);
+}
+
+.date-shortcut-btn.active {
+  background: var(--excel);
+  border-color: var(--excel);
+  color: #fff;
 }
 
 .check-field {
@@ -410,6 +452,71 @@ select:focus {
   display: block;
 }
 
+.mini-chart {
+  overflow-x: auto;
+}
+
+.mini-chart-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.mini-chart-row:last-child {
+  border-bottom: none;
+}
+
+.mini-chart-label {
+  flex: 0 0 80px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.mini-chart-series {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mini-series {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.mini-series-name {
+  flex: 0 0 70px;
+  color: var(--muted);
+}
+
+.mini-series-bar {
+  flex: 1;
+  height: 14px;
+  background: #edf1f5;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mini-series-bar span {
+  display: block;
+  height: 100%;
+  background: var(--excel);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.mini-series strong {
+  flex: 0 0 50px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--ink);
+}
+
 .axis-label {
   fill: var(--muted);
   font-size: 12px;
@@ -437,6 +544,49 @@ thead th {
   background: var(--surface-strong);
   color: #324150;
   font-weight: 700;
+}
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+th.sortable .sort-icon {
+  display: inline-block;
+  margin-left: 3px;
+  opacity: 0.35;
+  font-size: 11px;
+}
+
+th.sortable.sort-active .sort-icon {
+  opacity: 1;
+  color: var(--excel);
+}
+
+th.sortable:hover {
+  background: rgba(33, 115, 70, 0.06);
+}
+
+th.sortable:hover .sort-icon {
+  opacity: 0.8;
+}
+
+.table-link {
+  color: var(--excel);
+  text-decoration: none;
+}
+
+.table-link:hover {
+  text-decoration: underline;
+}
+
+.trend-up {
+  color: #2e7d32;
+}
+
+.trend-down {
+  color: #c62828;
 }
 
 th,
@@ -551,6 +701,292 @@ tbody tr:hover {
 
 .empty-inline {
   margin-top: 12px;
+}
+
+/* ── KPI Tiers ── */
+.kpi-tier {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.kpi-tier + .kpi-tier {
+  margin-top: 10px;
+}
+
+.kpi-tier-label {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.kpi-tier-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.kpi-tier-result .metric-card {
+  background: var(--surface-strong);
+  border-left: 3px solid var(--excel);
+}
+
+.kpi-tier-result .metric-value {
+  font-size: 28px;
+}
+
+.kpi-tier-process .metric-value {
+  font-size: 24px;
+}
+
+.kpi-tier-action .metric-card {
+  background: var(--surface-soft);
+}
+
+.kpi-tier-action .metric-value {
+  font-size: 22px;
+}
+
+/* ── Anomaly Summary ── */
+.anomaly-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.anomaly-column h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.anomaly-column h4.anomaly-danger {
+  color: var(--danger);
+}
+
+.anomaly-column h4.anomaly-warn {
+  color: var(--amber);
+}
+
+.anomaly-column h4.anomaly-muted {
+  color: var(--slate);
+}
+
+.anomaly-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.anomaly-item:last-child {
+  border-bottom: none;
+}
+
+.anomaly-item .anomaly-rank {
+  flex: 0 0 20px;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.anomaly-item .anomaly-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.anomaly-item .anomaly-value {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.anomaly-item .anomaly-value.danger {
+  color: var(--danger);
+}
+
+.anomaly-item .anomaly-value.warn {
+  color: var(--amber);
+}
+
+/* ── Heatmap Tabs ── */
+.heatmap-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tab-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+  border-color: var(--excel);
+  color: var(--excel);
+}
+
+.tab-btn.active {
+  background: var(--excel);
+  border-color: var(--excel);
+  color: #fff;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+/* ── Drill Link Tags ── */
+.tag-drill {
+  background: var(--surface-soft);
+  color: var(--slate);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.tag-drill:hover {
+  background: var(--excel-soft);
+  color: var(--excel);
+}
+
+/* ── Drill Links ── */
+.drill-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.drill-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--slate);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.drill-link:hover {
+  border-color: var(--excel);
+  background: var(--excel-soft);
+  color: var(--excel);
+}
+
+.drill-link::before {
+  content: "→";
+  font-weight: 700;
+}
+
+/* 筛选摘要 */
+.filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px;
+  background: var(--surface-soft);
+  border-radius: 6px;
+  margin-top: 12px;
+}
+
+.filter-summary:empty {
+  display: none;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: var(--excel-soft);
+  border: 1px solid var(--excel);
+  border-radius: 4px;
+  color: var(--excel);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.filter-tag-label {
+  color: var(--muted);
+}
+
+/* 更多筛选折叠 */
+.filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-toggle:hover {
+  border-color: var(--excel);
+  color: var(--excel);
+}
+
+.filter-toggle.active {
+  background: var(--excel);
+  border-color: var(--excel);
+  color: #fff;
+}
+
+.filter-toggle::after {
+  content: "▼";
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.filter-toggle.active::after {
+  transform: rotate(180deg);
+}
+
+.filter-more {
+  display: none;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.filter-more.show {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
 }
 
 @media (max-width: 1280px) {

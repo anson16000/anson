@@ -27,7 +27,32 @@ export function createSearchableSelect(
   let activeIndex = -1;
 
   const normalize = (value) => String(value ?? "").trim().toLowerCase();
-  const optionByValue = (value) => allOptions.find((item) => item.value === value) || allOptions[0];
+  const optionByValue = (value) => allOptions.find((item) => String(item.value) === String(value)) || allOptions[0];
+
+  function findExactOption(rawValue) {
+    const normalizedValue = normalize(rawValue);
+    if (!normalizedValue) return null;
+    return (
+      allOptions.find((item) => normalize(item.label) === normalizedValue)
+      || allOptions.find((item) => normalize(item.value) === normalizedValue)
+      || null
+    );
+  }
+
+  function findSingleFilteredOption(rawValue) {
+    const normalizedValue = normalize(rawValue);
+    if (!normalizedValue || filteredOptions.length !== 1) return null;
+    const [onlyOption] = filteredOptions;
+    if (!onlyOption) return null;
+    if (
+      normalize(onlyOption.label).includes(normalizedValue)
+      || normalize(onlyOption.value).includes(normalizedValue)
+      || normalize(onlyOption.searchText || onlyOption.label).includes(normalizedValue)
+    ) {
+      return onlyOption;
+    }
+    return null;
+  }
 
   function refreshClearButton() {
     clear.hidden = !selectedValue && !input.value;
@@ -72,6 +97,21 @@ export function createSearchableSelect(
     if (notify) onChange(value, selected);
   }
 
+  function commitFromInput() {
+    if (selectedValue) return true;
+    const exact = findExactOption(input.value);
+    if (exact) {
+      commit(exact.value);
+      return true;
+    }
+    const single = findSingleFilteredOption(input.value);
+    if (single) {
+      commit(single.value);
+      return true;
+    }
+    return false;
+  }
+
   input.addEventListener("focus", () => {
     isOpen = true;
     applyFilter(input.value);
@@ -82,6 +122,18 @@ export function createSearchableSelect(
     refreshClearButton();
     isOpen = true;
     applyFilter(input.value);
+  });
+
+  input.addEventListener("blur", () => {
+    window.setTimeout(() => {
+      if (document.activeElement && host.contains(document.activeElement)) return;
+      if (!commitFromInput()) {
+        input.value = selectedValue ? optionByValue(selectedValue).label : "";
+        isOpen = false;
+        renderMenu();
+        refreshClearButton();
+      }
+    }, 0);
   });
 
   input.addEventListener("keydown", (event) => {
@@ -100,7 +152,11 @@ export function createSearchableSelect(
       renderMenu();
     } else if (event.key === "Enter") {
       event.preventDefault();
-      if (filteredOptions[activeIndex]) commit(filteredOptions[activeIndex].value);
+      if (filteredOptions[activeIndex]) {
+        commit(filteredOptions[activeIndex].value);
+      } else if (!commitFromInput()) {
+        input.select();
+      }
     } else if (event.key === "Escape") {
       isOpen = false;
       renderMenu();
@@ -121,13 +177,11 @@ export function createSearchableSelect(
 
   document.addEventListener("click", (event) => {
     if (!host.contains(event.target)) {
+      if (!commitFromInput()) {
+        input.value = selectedValue ? optionByValue(selectedValue).label : "";
+      }
       isOpen = false;
       renderMenu();
-      if (!selectedValue && input.value) {
-        const exact = allOptions.find((item) => item.label === input.value);
-        if (exact) commit(exact.value);
-        else input.value = "";
-      }
       refreshClearButton();
     }
   });
