@@ -41,6 +41,8 @@
 - 履约摘要
 - 小时运力
 - 热力图
+- 准时率
+- SLA 履约率 / 超时率
 
 ### 3.4 主体分析
 
@@ -86,6 +88,7 @@
 
 - `GET /api/v1/partner/{partner_id}/overview`
 - `GET /api/v1/partner/{partner_id}/hourly`
+- `GET /api/v1/partner/{partner_id}/sla`
 
 ### 主体分析
 
@@ -94,6 +97,7 @@
 - `GET /api/v1/partner/{partner_id}/new-merchants`
 - `GET /api/v1/partner/{partner_id}/riders`
 - `GET /api/v1/partner/{partner_id}/merchants`
+- `GET /api/v1/partner/{partner_id}/merchant-like-users`
 - `GET /api/v1/partner/{partner_id}/income/riders`
 
 ### 诊断预警
@@ -102,19 +106,11 @@
 - `GET /api/v1/admin/health`
 - `GET /api/v1/admin/partners/fluctuation`
 
-## 6. 状态与异常提示
+## 6. 验收重点
 
-- 所有页面在未选择合伙人时显示空态
-- 超过 31 天统一提示：
-  - `单次查询最多支持 31 天，请缩小日期范围。`
-- 局部筛选只刷新对应模块
-
-## 7. 验收清单
-
-- 5 个页面路由全部可打开
-- `/direct` 正确跳转到城市经营页的直营专项区域
-- 全国总览不再展示风险/预警深度模块
-- 城市经营不再深铺热力图、名单明细、主体识别
-- `merchant_like_threshold` 只影响主体分析页中的主体识别
-- 名单筛选只影响主体分析页名单区
+- 5 个页面都可访问
+- `/direct` 只做兼容跳转
+- `merchant_like_threshold` 只在主体分析页生效
+- 名单筛选只影响名单
 - 所有页面继续限制最多 31 天
+- 既有业务口径不变，只改变页面归属与层级

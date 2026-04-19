@@ -30,9 +30,9 @@ function partnerColumns(includeScore = false) {
 export function renderAlertsSummary(metrics, health) {
   const summary = health.summary || {};
   const tags = [
-    `健康 ${formatNumber(summary.green_count)} 个`,
-    `关注 ${formatNumber(summary.yellow_count)} 个`,
-    `风险 ${formatNumber(summary.red_count)} 个`,
+    `健康 ${formatNumber(summary.green_count)} 家`,
+    `关注 ${formatNumber(summary.yellow_count)} 家`,
+    `风险 ${formatNumber(summary.red_count)} 家`,
     `平均健康度 ${formatDecimal(summary.average_score)}`,
   ];
   if ((summary.red_count || 0) > 0) tags.push("建议优先处理风险加盟商和波动预警");

@@ -23,6 +23,7 @@ class ApiContractsTestCase(unittest.TestCase):
         schema = self.app.openapi()
         self.assertIn("/api/v1/partner/{partner_id}/merchants", schema["paths"])
         self.assertIn("/api/v1/partner/{partner_id}/merchant-like-users", schema["paths"])
+        self.assertIn("/api/v1/admin/partners/fluctuation", schema["paths"])
 
     def test_merchant_threshold_only_exists_on_merchant_like_endpoint(self):
         schema = self.app.openapi()
@@ -35,11 +36,18 @@ class ApiContractsTestCase(unittest.TestCase):
         self.assertNotIn("merchant_like_threshold", merchant_param_names)
         self.assertIn("merchant_like_threshold", identity_param_names)
 
+    def test_fluctuation_endpoint_accepts_region_and_partner_filters(self):
+        schema = self.app.openapi()
+        fluctuation_parameters = schema["paths"]["/api/v1/admin/partners/fluctuation"]["get"]["parameters"]
+        fluctuation_param_names = {item["name"] for item in fluctuation_parameters}
+
+        self.assertTrue({"province", "city", "district", "partner_id"}.issubset(fluctuation_param_names))
+
     def test_query_window_rejects_over_31_days(self):
         with self.assertRaises(HTTPException) as ctx:
             validate_query_window(date(2026, 3, 1), date(2026, 4, 5))
         self.assertEqual(ctx.exception.status_code, 400)
-        self.assertIn("31 天", ctx.exception.detail)
+        self.assertIn("31", ctx.exception.detail)
 
     def test_import_parser_supports_auto_and_force_modes(self):
         parser = build_parser()

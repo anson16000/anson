@@ -2,156 +2,41 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=/partner?section=direct">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>同城配送经营分析系统 - 直营页</title>
+  <title>正在跳转到城市经营页</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <div class="shell">
     <nav class="top-nav">
-      <a class="nav-link" href="/">全国页</a>
-      <a class="nav-link" href="/partner">单城市页</a>
-      <a class="nav-link active" href="/direct">直营页</a>
+      <a class="nav-link" href="/">全国总览</a>
+      <a class="nav-link active" href="/partner">城市经营</a>
+      <a class="nav-link" href="/partner/hourly">时段热力与履约</a>
+      <a class="nav-link" href="/partner/entities">主体分析</a>
+      <a class="nav-link" href="/alerts">诊断预警</a>
     </nav>
 
-    <header class="page-header">
-      <div class="page-header-main">
-        <p class="page-tag">直营专项视角</p>
-        <h1>直营经营分析</h1>
-        <p class="page-desc">直营页只保留直营专项主场：日单量、有效订单、时间段数据、渠道对比、优惠金额统计和收益指标，避免与单城市页重复铺陈通用经营内容。</p>
-      </div>
-      <div class="page-meta-grid">
-        <div class="meta-card">
-          <span>最后导入时间</span>
-          <strong id="directlastImportTime">-</strong>
-        </div>
-        <div class="meta-card">
-          <span>最新数据日期</span>
-          <strong id="directlatestDataDate">-</strong>
-        </div>
-        <div class="meta-card">
-          <span>数据版本</span>
-          <strong id="directdataVersion">-</strong>
-        </div>
-      </div>
-    </header>
-
-    <section class="toolbar report-section">
-      <div class="toolbar-head">
-        <div>
-          <h2>筛选条件</h2>
-          <p>直营页统一按下单日期查询，并限制单次最多查询 31 天。</p>
-        </div>
-        <button id="refreshDirect" class="btn">刷新数据</button>
-      </div>
-      <div class="toolbar-grid toolbar-grid-partner">
-        <label class="field">
-          <span>开始日期</span>
-          <input id="directStartDate" type="date">
-        </label>
-        <label class="field">
-          <span>结束日期</span>
-          <input id="directEndDate" type="date">
-        </label>
-        <label class="field">
-          <span>合伙人</span>
-          <div id="directPartnerControl"></div>
-        </label>
-        <label class="field">
-          <span>活跃完成单阈值</span>
-          <input id="directActiveThreshold" type="number" min="1" value="1">
-        </label>
-        <label class="field">
-          <span>有效取消阈值（分钟）</span>
-          <input id="directValidCancelThreshold" type="number" min="1" value="5">
-        </label>
-      </div>
-    </section>
-
     <section class="report-section">
       <div class="section-head">
         <div>
-          <p class="section-kicker">直营结论</p>
-          <h2>经营结论</h2>
+          <p class="section-kicker">兼容入口</p>
+          <h1>直营页已并入城市经营</h1>
+          <p class="page-desc">
+            系统正在跳转到城市经营页的直营专项区域。
+            如果没有自动跳转，请点击下面按钮继续访问。
+          </p>
         </div>
       </div>
-      <div id="directConclusion" class="tag-strip"></div>
-    </section>
 
-    <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">一级 KPI</p>
-          <h2>核心摘要</h2>
-        </div>
+      <div class="section-tabs">
+        <a class="tab-link" href="/partner?section=direct">进入城市经营页中的直营专项</a>
       </div>
-      <div id="directCards" class="cards summary-strip"></div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">直营主场</p>
-          <h2>日单量统计</h2>
-        </div>
-      </div>
-      <div id="directDayChart" class="chart tall"></div>
-      <div id="directCancelTable" class="table-wrap"></div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">有效订单</p>
-          <h2>有效订单统计</h2>
-        </div>
-      </div>
-      <div id="directEffectiveChart" class="chart tall"></div>
-      <div id="directEffectiveTable" class="table-wrap"></div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">时段专项</p>
-          <h2>时间段数据</h2>
-        </div>
-      </div>
-      <div id="directHourlyTable" class="table-wrap"></div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">渠道专项</p>
-          <h2>渠道对比</h2>
-        </div>
-      </div>
-      <div id="directSourceTable" class="table-wrap"></div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">优惠专项</p>
-          <h2>优惠金额统计</h2>
-        </div>
-      </div>
-      <div id="directCouponTable" class="table-wrap"></div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">收益专项</p>
-          <h2>收益指标</h2>
-        </div>
-      </div>
-      <div id="directRevenueCards" class="cards summary-strip"></div>
-      <div id="directRiderCommissionTable" class="table-wrap"></div>
     </section>
   </div>
 
-  <script type="module" src="/static/direct.js"></script>
+  <script>
+    window.location.replace("/partner?section=direct");
+  </script>
 </body>
 </html>

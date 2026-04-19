@@ -12,14 +12,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.config import load_settings
 from app.database import session_scope
-from app.pipeline import (
-    _all_order_months,
-    _publish_data_version,
-    init_database,
-    rebuild_ads,
-    rebuild_dwd,
-    rebuild_standard_tables,
-)
+from app.pipeline import _all_order_months, init_database, rebuild_ads, rebuild_dwd, rebuild_standard_tables
+from app.services.import_runtime import publish_data_version
 
 
 def main() -> None:
@@ -37,7 +31,7 @@ def main() -> None:
         rebuild_standard_tables(session)
         rebuild_dwd(session, settings, months, run_id)
         rebuild_ads(session, months, run_id)
-        data_version, latest_ready_month = _publish_data_version(session, run_id)
+        data_version, latest_ready_month = publish_data_version(session, run_id)
         print(f"data_version={data_version}")
         print(f"latest_ready_month={latest_ready_month}")
 

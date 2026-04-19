@@ -1,23 +1,28 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import sys
 from pathlib import Path
+
+from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
-from sqlalchemy import text
 
 from app.config import load_settings
 from app.database import create_session_factory, session_scope
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="检查骑手 ID / 姓名在 stage / ODS / DWD / API 链路中的对应关系")
-    parser.add_argument("--rider-id", required=True, help="要检查的骑手ID")
-    parser.add_argument("--stage-file", default=None, help="要核对的 stage CSV 文件路径；不传则自动取 orders_stage 下最新的一份 CSV")
+    parser = argparse.ArgumentParser(description="检查骑手 ID / 姓名在 stage、ODS、DWD、名单表中的对应关系")
+    parser.add_argument("--rider-id", required=True, help="要检查的骑手 ID")
+    parser.add_argument(
+        "--stage-file",
+        default=None,
+        help="要核对的 stage CSV 文件路径；不传则自动取 orders_stage 下最新的一份 CSV",
+    )
     args = parser.parse_args()
 
     settings = load_settings()
@@ -34,8 +39,6 @@ def main() -> None:
     print(f"[STAGE] {stage_path}")
 
     if stage_path.exists():
-        import csv
-
         stage_matches: list[tuple[str, str, str]] = []
         with stage_path.open("r", encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle)
@@ -43,7 +46,7 @@ def main() -> None:
                 if str(row.get("配送员id", "")).strip() == rider_id:
                     stage_matches.append(
                         (
-                            str(row.get("订单编号", "")).strip(),
+                            str(row.get("订单编号", row.get("订单id", ""))).strip(),
                             str(row.get("配送员id", "")).strip(),
                             str(row.get("配送员", "")).strip(),
                         )
