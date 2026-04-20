@@ -16,30 +16,12 @@ echo Project: %ROOT%
 echo Mode: %IMPORT_MODE%
 echo.
 
-if defined DELIVERY_DASHBOARD_PYTHON (
-  if exist "%DELIVERY_DASHBOARD_PYTHON%" set "PYTHON_EXE=%DELIVERY_DASHBOARD_PYTHON%"
-)
-if exist "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe" (
-  set "PYTHON_EXE=C:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe"
-)
-if not defined PYTHON_EXE (
-  if exist "C:\Users\%USERNAME%\AppData\Local\Programs\Python\Python312\python.exe" (
-    set "PYTHON_EXE=C:\Users\%USERNAME%\AppData\Local\Programs\Python\Python312\python.exe"
-  )
-)
-if not defined PYTHON_EXE (
-  if exist "C:\Python312\python.exe" set "PYTHON_EXE=C:\Python312\python.exe"
-)
-if not defined PYTHON_EXE (
-  for %%P in (python.exe) do (
-    if not "%%~$PATH:P"=="" set "PYTHON_EXE=python"
-  )
-)
-if not defined PYTHON_EXE (
+call "%ROOT%scripts\resolve_python.bat" "%ROOT%"
+if errorlevel 1 (
   echo Python not found.
-  echo 1^) Install Python 3.10+
-  echo 2^) Ensure python is in PATH
-  echo 3^) Or set env var DELIVERY_DASHBOARD_PYTHON to python.exe full path
+  echo 1^) Run 00-bootstrap-environment.bat or 00-初始化环境.bat
+  echo 2^) Or install Python 3.12 and create the project .venv
+  echo 3^) Or set env var DELIVERY_DASHBOARD_PYTHON to a valid python.exe path
   echo.
   pause
   exit /b 1

@@ -7,12 +7,14 @@ venv/
 # 数据文件
 data/
 db/*.duckdb
+db/*.duckdb.wal
 db/*.db
 
 # 日志
 logs/
 *.log
 
-# 系统文件
+# 本地工具与系统文件
+.codebuddy/
 .DS_Store
 Thumbs.db
