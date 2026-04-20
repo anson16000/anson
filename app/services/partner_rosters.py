@@ -118,7 +118,7 @@ def build_partner_merchants_payload(
         completed_orders = int(row["completed_orders"] or 0)
         cancelled_orders = int(row["cancelled_orders"] or 0)
         merchant_id_value = row["merchant_id"]
-        merchant_name_value = row["merchant_name"] or merchant_id_value
+        merchant_name_value = row.get("shop_name") or row["merchant_name"] or merchant_id_value
         is_new_merchant = int(row["is_new_merchant"] or 0)
         merchant_item = merchant_items_map[merchant_id_value]
         merchant_item["merchant_id"] = merchant_id_value

@@ -1,4 +1,5 @@
 import {
+  escapeHtml,
   formatMoney,
   formatNumber,
   renderCards,
@@ -30,10 +31,13 @@ export function renderEntitiesSummary(overview) {
     `活跃骑手数 ${formatNumber(summary.active_riders)}`,
     `活跃商家数 ${formatNumber(summary.active_merchants)}`,
   ]);
-  setHtml("#entitiesDrillLinks", `
-    <a class="drill-link" href="/alerts">诊断预警：查看风险名单和健康度</a>
-    <a class="drill-link" href="/partner${getSharedPartnerParam()}">城市经营：查看经营收益明细</a>
-  `);
+  setHtml(
+    "#entitiesDrillLinks",
+    `
+      <a class="drill-link" href="/alerts">诊断预警：查看风险名单和健康度</a>
+      <a class="drill-link" href="/partner${getSharedPartnerParam()}">城市经营：查看经营收益明细</a>
+    `,
+  );
   renderCards("#entitiesCards .kpi-tier-result", [
     { label: "完成订单", value: formatNumber(summary.completed_orders) },
     { label: "活跃骑手数", value: formatNumber(summary.active_riders) },
@@ -111,7 +115,7 @@ export function renderMerchantRoster(rows) {
     "#entitiesMerchantRosterTable",
     [
       { key: "merchant_id", label: "商家 ID", sortable: true, sortType: "string" },
-      { key: "merchant_name", label: "商家名称", sortable: true },
+      { key: "merchant_name", label: "商户名称", sortable: true },
       { key: "register_date", label: "注册时间", sortable: true },
       { key: "total_orders", label: "总订单", sortable: true, render: formatNumber, align: "right" },
       { key: "completed_orders", label: "完成订单", sortable: true, render: formatNumber, align: "right" },
@@ -120,5 +124,63 @@ export function renderMerchantRoster(rows) {
     ],
     rows || [],
     { emptyText: "当前筛选范围暂无商家名单" },
+  );
+}
+
+export function renderOrderSourceSummary(payload) {
+  const hostSelector = "#entitiesOrderSourceSummary";
+  const items = payload?.items || [];
+  if (!items.length) {
+    setHtml(hostSelector, '<div class="empty empty-inline">当前筛选范围暂无订单来源数据</div>');
+    return;
+  }
+
+  const maxOrders = Math.max(...items.map((item) => Number(item.total_orders || 0)), 1);
+  const totalOrders = Number(payload?.summary?.total_orders || 0) || items.reduce((sum, item) => sum + Number(item.total_orders || 0), 0);
+
+  setHtml(
+    hostSelector,
+    `
+      <div class="order-source-summary">
+        ${items
+          .map((item) => {
+            const orders = Number(item.total_orders || 0);
+            const ratio = totalOrders > 0 ? ((orders / totalOrders) * 100).toFixed(1) : "0.0";
+            const width = Math.max((orders / maxOrders) * 100, orders > 0 ? 6 : 0);
+            return `
+              <article class="order-source-card">
+                <div class="order-source-card-head">
+                  <strong>${escapeHtml(item.order_source || "未知")}</strong>
+                  <span>${formatNumber(orders)} 单</span>
+                </div>
+                <div class="order-source-bar">
+                  <span style="width:${width}%"></span>
+                </div>
+                <div class="order-source-meta">
+                  <span>占比 ${ratio}%</span>
+                  <span>有效完成 ${formatNumber(item.valid_completed_orders)}</span>
+                </div>
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    `,
+  );
+}
+
+export function renderOrderSourceTable(rows) {
+  renderTable(
+    "#entitiesOrderSourceTable",
+    [
+      { key: "order_source", label: "订单来源", sortable: true, sortType: "string" },
+      { key: "total_orders", label: "总订单", sortable: true, render: formatNumber, align: "right" },
+      { key: "valid_orders", label: "有效订单", sortable: true, render: formatNumber, align: "right" },
+      { key: "completed_orders", label: "完成订单", sortable: true, render: formatNumber, align: "right" },
+      { key: "cancelled_orders", label: "取消订单", sortable: true, render: formatNumber, align: "right" },
+      { key: "valid_completed_orders", label: "有效完成订单", sortable: true, render: formatNumber, align: "right" },
+    ],
+    rows || [],
+    { emptyText: "当前筛选范围暂无订单来源数据" },
   );
 }

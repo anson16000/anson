@@ -1,7 +1,9 @@
 @echo off
-setlocal
+setlocal EnableExtensions EnableDelayedExpansion
 
 set "ROOT=%~dp0"
+if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
+
 cd /d "%ROOT%"
 
 echo.
@@ -11,16 +13,15 @@ echo ==============================
 echo Project: %ROOT%
 echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%scripts\bootstrap_env.ps1" -Root "%ROOT%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\bootstrap_env.ps1" -Root "%ROOT%"
 if errorlevel 1 (
   echo.
   echo Bootstrap failed.
-  echo Log file: %ROOT%logs\bootstrap_last.log
+  echo Log file: %ROOT%\logs\bootstrap_last.log
   pause
   exit /b 1
 )
 
 echo.
 echo Bootstrap finished.
-echo Log file: %ROOT%logs\bootstrap_last.log
 pause

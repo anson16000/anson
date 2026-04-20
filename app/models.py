@@ -157,6 +157,7 @@ class MerchantRosterRaw(Base):
     imported_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     merchant_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
     merchant_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    shop_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     partner_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     region: Mapped[str | None] = mapped_column(String(255), nullable=True)
     register_date: Mapped[str | None] = mapped_column(String(32), nullable=True)
@@ -197,6 +198,7 @@ class MerchantRoster(Base):
 
     merchant_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     merchant_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    shop_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     partner_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     region: Mapped[str | None] = mapped_column(String(255), nullable=True)
     register_date: Mapped[date | None] = mapped_column(Date, nullable=True)

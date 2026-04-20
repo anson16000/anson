@@ -738,6 +738,54 @@ tbody tr:hover {
   border-left: 3px solid var(--excel);
 }
 
+.order-source-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.order-source-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.order-source-card-head,
+.order-source-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.order-source-card-head strong {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.order-source-card-head span,
+.order-source-meta span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.order-source-bar {
+  height: 10px;
+  margin: 10px 0 8px;
+  background: #edf1f5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.order-source-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--excel), #4f9c6f);
+  border-radius: 999px;
+}
+
 .kpi-tier-result .metric-value {
   font-size: 28px;
 }
