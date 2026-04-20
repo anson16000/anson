@@ -1,114 +1,159 @@
 # 同城配送经营分析系统
 
-基于 `FastAPI + SQLAlchemy + DuckDB + 原生前端` 的本地经营分析系统。
+基于 `FastAPI + SQLAlchemy + DuckDB + 原生前端` 的本地配送经营分析系统。
 
-## 页面结构（5 页架构）
+## 页面入口
 
 | 页面 | 路由 | 说明 |
-|------|------|------|
-| 全国总览 | `/` | 全局经营数据总览 |
-| 城市经营 | `/partner` | 合伙人视角经营分析，含直营专项 |
-| 时段热力 | `/partner/hourly` | 分时段订单分布与履约分析 |
-| 主体分析 | `/partner/entities` | 商家、骑手、合伙人详情分析 |
-| 诊断预警 | `/alerts` | 异常订单、履约问题预警 |
+| --- | --- | --- |
+| 全国总览 | `/` | 全国级经营概览、趋势、排名和分层 |
+| 城市经营 | `/partner` | 单城市经营摘要、收益和直营专项入口 |
+| 时段热力与履约 | `/partner/hourly` | 小时运力、热力、履约与 SLA |
+| 主体分析 | `/partner/entities` | 商户、骑手、主体识别与名单明细 |
+| 诊断预警 | `/alerts` | 风险加盟商、关注加盟商、健康度与波动预警 |
 
 兼容入口：
 
-- `/direct` → 跳转至 `/partner?section=direct`（直营专项）
+- `/direct` 会跳转到 `/partner?section=direct`
 
-## 快速启动
+## Windows 首次部署
 
-### Windows 批处理入口
+本项目当前只支持 **Windows**。首次在新电脑使用时，按下面步骤执行：
 
-```
-01-一键导入数据.bat   # 自动导入数据（按文件哈希去重）
-01-一键强制重建.bat   # 强制重建所有月份数据
-02-一键启动看板.bat   # 启动看板服务（默认端口 8090）
-03-运行测试.bat       # 运行单元测试
-```
+1. 复制整个项目目录到新电脑
+2. 双击运行 `00-初始化环境.bat`
+3. 初始化成功后，双击运行 `02-一键启动看板.bat`
+4. 如需导入业务数据，再运行：
+   - `01-一键导入数据.bat`
+   - `01-一键强制重建.bat`
 
-### 命令行方式
+### 初始化脚本会做什么
 
-```bash
-# 数据导入
-python main.py import --mode=auto    # 自动模式：文件未变化时跳过
-python main.py import --mode=force   # 强制模式：忽略去重重建
+`00-初始化环境.bat` 会自动完成：
+
+- 检查 Python 3.12 是否存在
+- 缺失时自动下载安装 Python 3.12
+- 创建项目虚拟环境 `.venv`
+- 安装 `requirements.txt`
+- 校验关键目录和关键文件
+- 检查端口 `8090`
+- 写入环境变量 `DELIVERY_DASHBOARD_PYTHON`
+
+初始化日志：
+
+- `logs\bootstrap_last.log`
+
+## 常用批处理脚本
+
+- `00-初始化环境.bat`：首次部署、环境检查与自动安装
+- `01-一键导入数据.bat`：按文件去重导入数据
+- `01-一键强制重建.bat`：忽略去重并强制重建当前文件对应月份
+- `02-一键启动看板.bat`：启动本地看板服务
+- `03-运行测试.bat`：运行自动化测试
+
+这些脚本都会优先使用：
+
+1. `DELIVERY_DASHBOARD_PYTHON`
+2. 项目内 `.venv\Scripts\python.exe`
+3. 系统中可用的 Python 3.12
+
+## 命令行入口
+
+```powershell
+# 自动导入（文件未变化时跳过）
+python main.py import --mode=auto
+
+# 强制重建（忽略去重）
+python main.py import --mode=force
 
 # 启动服务
-python main.py server --port=8090    # 默认端口 8090
-python main.py server --reload        # 启用热重载开发模式
+python main.py server --port 8090
+
+# 开发模式
+python main.py server --reload
 ```
 
-## 核心业务口径
+## 默认端口
 
-| 指标 | 定义 |
-|------|------|
-| 主统计日期 | 按下单日期统计 |
-| 有效订单 | 完成订单 + 支付后取消且支付到取消时长 > 阈值 |
-| 超时取消 | 下单到取消时长 > 阈值分钟 |
-| 完成率 | 完成订单 / 总订单 |
-| 取消率 | 取消订单 / 总订单 |
-| 有效订单完成率 | 完成订单 / 有效订单 |
-| 有效订单取消率 | 有效取消订单 / 有效订单 |
-| 经营利润 | 合伙人收入总额 - 合伙人补贴总额 |
-| 订单均价 | 实付金额 / 完成订单数（按实际收款 `amount_paid` 计算） |
+- 默认服务端口：`8090`
 
-## 项目结构
+如果端口已占用，初始化脚本和启动脚本会给出提示。
 
-```
-delivery-dashboard/
-├── main.py                 # 入口：import / server 命令
-├── app/
-│   ├── api.py              # FastAPI 接口层
-│   ├── models.py           # 数据库模型
-│   ├── pipeline.py         # 数据导入与聚合管道
-│   ├── config.py           # 配置管理
-│   ├── database.py         # 数据库连接
-│   ├── services/           # 业务逻辑服务
-│   └── static/              # 前端静态资源
-│       ├── admin.html       # 全国总览
-│       ├── partner.html     # 城市经营
-│       ├── hourly.html      # 时段热力
-│       ├── entities.html    # 主体分析
-│       ├── alerts.html      # 诊断预警
-│       ├── controllers/     # 页面控制器
-│       ├── modules/         # 业务模块
-│       └── ui/              # UI 组件
-├── config/                  # YAML 配置文件
-├── scripts/                 # 辅助脚本
-├── tests/                   # 单元测试
-└── docs/                    # 项目文档
-```
+## 数据目录说明
 
-## 数据目录
+首次部署时 **不要求已有数据**，只有代码也可以先完成初始化并启动页面。
 
-```
+项目数据目录结构：
+
+```text
 data/
-├── orders_raw/     # 原始订单数据
-├── riders/         # 骑手数据
-├── merchants/      # 商家数据
-├── partners/       # 合伙人数据
-├── orders/         # 兼容旧目录
-└── orders_stage/   # 中间处理文件
+├─ orders_raw/      # 原始订单数据
+├─ orders_stage/    # 订单预处理后的 stage 文件
+├─ orders/          # 兼容旧目录
+├─ riders/          # 骑手名册
+├─ merchants/       # 商户名册
+└─ partners/        # 合伙人名册
+```
+
+说明：
+
+- `data/` 可以为空
+- 没有原始业务数据时，页面可以启动，但不会显示真实业务结果
+- 导入数据后，数据库会自动创建或更新
+
+## GitHub 上传边界
+
+仓库只上传代码和文档，不上传业务原始数据。
+
+默认不随仓库分发的内容包括：
+
+- 原始订单、骑手、商户、合伙人表格
+- `data/orders_stage/`
+- `db/*.duckdb`
+- `db/*.duckdb.wal`
+- `logs/`
+
+首次在新电脑部署时，需要你自行放入数据文件后再导入。
+
+## 目录结构
+
+```text
+delivery-dashboard/
+├─ main.py
+├─ app/
+│  ├─ api.py
+│  ├─ config.py
+│  ├─ database.py
+│  ├─ models.py
+│  ├─ pipeline.py
+│  ├─ services/
+│  └─ static/
+├─ config/
+├─ docs/
+├─ scripts/
+├─ tests/
+└─ requirements.txt
 ```
 
 ## 文档
 
-`docs/` 目录包含：
+`docs/` 目录中保留当前仍有效的文档，包括：
 
-- **方案文档**：最新系统架构与设计
-- **5 页版 PRD**：页面职责表、改版差异说明
-- **口径手册**：完整业务指标定义
-- **字段字典**：数据库字段说明
+- 最新系统方案文档
+- 5 页版 PRD
+- 页面职责表
+- 改版差异说明
+- 字段字典
+- 口径手册
 
-## GitHub 上传规则
+## 运行测试
 
-**上传**：代码、配置、启动脚本、文档
+直接双击：
 
-**不上传**：原始数据、stage 中间文件、DuckDB 数据库文件、日志
+- `03-运行测试.bat`
 
-```bash
-# 推送前检查
-git status
-# 确认无原始数据、stage、数据库、日志文件
+或命令行执行：
+
+```powershell
+python -m unittest discover -s tests -p "test*.py"
 ```
