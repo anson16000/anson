@@ -170,7 +170,12 @@ function Install-Python312 {
     return $resolved
 }
 
-$Root = (Resolve-Path $Root).Path
+# Clean up path: remove trailing quotes and backslashes
+$Root = $Root.Trim('"', "'").TrimEnd('\', '/')
+if (-not $Root) {
+    $Root = (Split-Path $PSScriptRoot -Parent)
+}
+$Root = (Resolve-Path -LiteralPath $Root -ErrorAction Stop).Path
 $logsDir = Join-Path $Root "logs"
 Ensure-Directory $logsDir
 $script:LogFile = Join-Path $logsDir "bootstrap_last.log"

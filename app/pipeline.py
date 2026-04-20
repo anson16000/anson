@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import json
 import re
 import time
 from datetime import datetime
@@ -105,7 +106,8 @@ RIDER_FIELD_MAP = {
 
 MERCHANT_FIELD_MAP = {
     "merchant_id": ["商家id", "商家ID", "商户id", "商户ID", "merchant_id"],
-    "merchant_name": ["商家", "商家名称", "商户名称", "merchant_name"],
+    "merchant_name": ["商家", "商家名称", "merchant_name"],
+    "shop_name": ["商户名称", "shop_name"],
     "partner_name": ["所属合伙人", "partner_name"],
     "region": ["所属区域", "区域", "region"],
     "register_date": ["注册时间", "注册日期", "register_date"],
@@ -173,6 +175,12 @@ def _migrate_tables(engine) -> None:
             ("marketing_coupon_id", "VARCHAR"),
             ("hq_discount_raw_amount", "DOUBLE"),
             ("discount_raw_amount", "DOUBLE"),
+        ],
+        "ods_merchant_roster_raw": [
+            ("shop_name", "VARCHAR"),
+        ],
+        "merchant_roster": [
+            ("shop_name", "VARCHAR"),
         ],
     }
     with engine.begin() as conn:
@@ -1108,6 +1116,7 @@ def rebuild_standard_tables(session: Session) -> None:
         {
             "merchant_id": merchant_id,
             "merchant_name": raw.merchant_name,
+            "shop_name": _extract_merchant_shop_name(raw),
             "partner_name": raw.partner_name,
             "region": raw.region,
             "register_date": parse_date(raw.register_date),
@@ -1139,6 +1148,53 @@ def rebuild_standard_tables(session: Session) -> None:
         session.bulk_insert_mappings(MerchantRoster, merchant_rows)
     if partner_rows:
         session.bulk_insert_mappings(PartnerRoster, partner_rows)
+
+
+def _extract_merchant_shop_name(raw: MerchantRosterRaw) -> str | None:
+    if raw.shop_name:
+        return raw.shop_name
+    if not raw.raw_payload:
+        return None
+    try:
+        payload = json.loads(raw.raw_payload)
+    except Exception:  # noqa: BLE001
+        return None
+    return payload.get("商户名称") or payload.get("shop_name")
+
+
+def sync_merchant_shop_names(session: Session, settings: Settings | None = None) -> int:
+    merchant_map: dict[str, MerchantRosterRaw] = {}
+    for row in session.scalars(select(MerchantRosterRaw).order_by(MerchantRosterRaw.imported_at, MerchantRosterRaw.row_number)):
+        merchant_id = normalize_identifier(row.merchant_id)
+        if merchant_id:
+            merchant_map[merchant_id] = row
+
+    source_shop_name_map: dict[str, str] = {}
+    if settings is not None:
+        merchant_dir = resolve_path(settings.paths.merchants)
+        if merchant_dir.exists():
+            for path in sorted(merchant_dir.iterdir()):
+                if not path.is_file() or path.suffix.lower() not in {".xls", ".xlsx", ".csv"}:
+                    continue
+                for row in load_table(path):
+                    mapped = _canonical_row(row, MERCHANT_FIELD_MAP)
+                    merchant_id = normalize_identifier(mapped.get("merchant_id"))
+                    shop_name = clean_text(mapped.get("shop_name"))
+                    if merchant_id and shop_name:
+                        source_shop_name_map[merchant_id] = shop_name
+
+    updated = 0
+    for merchant_id, raw in merchant_map.items():
+        roster = session.get(MerchantRoster, merchant_id)
+        if not roster:
+            continue
+        shop_name = _extract_merchant_shop_name(raw) or source_shop_name_map.get(merchant_id)
+        if not shop_name or roster.shop_name == shop_name:
+            continue
+        roster.shop_name = shop_name
+        roster.last_updated_at = datetime.utcnow()
+        updated += 1
+    return updated
 
 
 def rebuild_dwd(session: Session, settings: Settings, order_months: set[str], batch_id: str) -> None:

@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
@@ -50,10 +50,10 @@ from app.models import (
     PartnerSlaConfig,
     RiderRoster,
 )
-from app.pipeline import get_latest_import_info, import_all, init_database
+from app.pipeline import get_latest_import_info, import_all, init_database, sync_merchant_shop_names
 from app.services.alerts_service import build_partner_fluctuation_payload
 from app.services.direct_metrics import build_direct_new_merchants_payload, build_direct_new_riders_payload
-from app.services.partner_entities import build_merchant_like_users
+from app.services.partner_entities import build_merchant_like_users, build_partner_order_sources
 from app.services.partner_metrics import (
     build_partner_daily_payload,
     build_partner_health_payload,
@@ -529,6 +529,8 @@ def _build_order_summary(total_orders: float, valid_orders: float, completed_ord
 def _calc_partner_recent_daily(session_factory, ranking_level: str) -> list[dict[str, Any]]:
     if ranking_level != "all":
         return []
+    end_date = date.today()
+    start_date = end_date - timedelta(days=3)
     with session_scope(session_factory) as session:
         rows = list(
             session.execute(
@@ -538,8 +540,8 @@ def _calc_partner_recent_daily(session_factory, ranking_level: str) -> list[dict
                     DwdOrderDetail.order_date.label("date"),
                     _sum_bool(DwdOrderDetail.is_completed.is_(True)).label("completed_orders"),
                 )
-                .where(DwdOrderDetail.order_date >= func.date_sub(func.current_date(), literal_column("3")))
-                .where(DwdOrderDetail.order_date <= func.current_date())
+                .where(DwdOrderDetail.order_date >= start_date)
+                .where(DwdOrderDetail.order_date <= end_date)
                 .group_by(DwdOrderDetail.partner_id, DwdOrderDetail.order_date)
             ).mappings()
         )
@@ -558,6 +560,9 @@ def create_app() -> FastAPI:
     settings = load_settings()
     setup_logging(str(resolve_path(settings.paths.logs)))
     _, session_factory = init_database(settings)
+    if session_factory:
+        with session_scope(session_factory) as session:
+            sync_merchant_shop_names(session, settings)
 
     app = FastAPI(title="Delivery Dashboard", version="1.0.0")
     static_dir = resolve_path(settings.paths.static)
@@ -1626,6 +1631,7 @@ def create_app() -> FastAPI:
                 DwdOrderDetail.order_date.label("date"),
                 DwdOrderDetail.merchant_id.label("merchant_id"),
                 func.max(MerchantRoster.merchant_name).label("merchant_name"),
+                func.max(MerchantRoster.shop_name).label("shop_name"),
                 func.max(MerchantRoster.register_date).label("register_date"),
                 func.count().label("total_orders"),
                 _sum_bool(DwdOrderDetail.is_completed.is_(True)).label("completed_orders"),
@@ -1668,6 +1674,30 @@ def create_app() -> FastAPI:
                 "latest_ready_month": info.get("latest_ready_month"),
                 "merchant_like_threshold": merchant_like_threshold,
                 "items": items,
+            }
+        )
+
+    @app.get("/api/v1/partner/{partner_id}/order-sources")
+    def partner_order_sources(
+        partner_id: str,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ):
+        _validate_query_window(start_date, end_date)
+        with session_scope(session_factory) as session:
+            info = get_latest_import_info(session)
+            payload = build_partner_order_sources(
+                session,
+                partner_id=partner_id,
+                start_date=start_date,
+                end_date=end_date,
+                apply_dwd_filters=_apply_dwd_filters,
+            )
+        return api_response(
+            {
+                "data_version": info.get("data_version"),
+                "latest_ready_month": info.get("latest_ready_month"),
+                **payload,
             }
         )
 
