@@ -32,12 +32,12 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
     settings = load_settings()
-    init_database(settings)
 
     if args.command == "import":
-        result = import_all(settings, mode=args.mode)
-        print(result)
-        return
+      init_database(settings)
+      result = import_all(settings, mode=args.mode)
+      print(result)
+      return
 
     from app.api import create_app
 
@@ -47,6 +47,7 @@ def main() -> None:
         port=args.port or settings.server.port,
         reload=args.reload or settings.server.reload,
         factory=True,
+        use_colors=False,
     )
 
 

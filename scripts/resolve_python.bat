@@ -8,35 +8,28 @@ if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 set "PYTHON_EXE="
 
 if defined DELIVERY_DASHBOARD_PYTHON (
-  if exist "%DELIVERY_DASHBOARD_PYTHON%" set "PYTHON_EXE=%DELIVERY_DASHBOARD_PYTHON%"
+  call :try_candidate "%DELIVERY_DASHBOARD_PYTHON%"
+  if defined PYTHON_EXE goto resolved
 )
 
-if not defined PYTHON_EXE (
-  if exist "%ROOT%\.venv\Scripts\python.exe" set "PYTHON_EXE=%ROOT%\.venv\Scripts\python.exe"
-)
+call :try_candidate "%ROOT%\.venv\Scripts\python.exe"
+if defined PYTHON_EXE goto resolved
 
-if not defined PYTHON_EXE (
-  if exist "C:\Users\%USERNAME%\AppData\Local\Programs\Python\Python312\python.exe" (
-    set "PYTHON_EXE=C:\Users\%USERNAME%\AppData\Local\Programs\Python\Python312\python.exe"
-  )
-)
+call :try_candidate "C:\Users\%USERNAME%\AppData\Local\Programs\Python\Python312\python.exe"
+if defined PYTHON_EXE goto resolved
 
-if not defined PYTHON_EXE (
-  if exist "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe" (
-    set "PYTHON_EXE=C:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe"
-  )
-)
+call :try_candidate "C:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe"
+if defined PYTHON_EXE goto resolved
 
-if not defined PYTHON_EXE (
-  if exist "C:\Python312\python.exe" set "PYTHON_EXE=C:\Python312\python.exe"
-)
+call :try_candidate "C:\Python312\python.exe"
+if defined PYTHON_EXE goto resolved
 
 if not defined PYTHON_EXE (
   for /f "delims=" %%P in ('where python 2^>nul') do (
     echo %%P | find /I "WindowsApps" >nul
     if errorlevel 1 (
-      set "PYTHON_EXE=%%P"
-      goto :resolved
+      call :try_candidate "%%P"
+      if defined PYTHON_EXE goto resolved
     )
   )
 )
@@ -47,3 +40,12 @@ if not defined PYTHON_EXE (
 )
 
 endlocal & set "PYTHON_EXE=%PYTHON_EXE%" & exit /b 0
+
+:try_candidate
+set "CANDIDATE=%~1"
+if not defined CANDIDATE goto :eof
+if not exist "%CANDIDATE%" goto :eof
+"%CANDIDATE%" -c "import sys" >nul 2>&1
+if errorlevel 1 goto :eof
+set "PYTHON_EXE=%CANDIDATE%"
+goto :eof
