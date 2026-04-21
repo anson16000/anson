@@ -13,8 +13,8 @@ export function saveFilters(filters, pageKey = "") {
       Object.assign(data, filters);
     }
     sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.warn("保存筛选条件失败", e);
+  } catch (error) {
+    console.warn("保存筛选条件失败", error);
   }
 }
 
@@ -22,7 +22,7 @@ export function loadFilters(pageKey = "") {
   try {
     const data = JSON.parse(sessionStorage.getItem(FILTER_STORAGE_KEY) || "{}");
     return pageKey ? (data[pageKey] || {}) : data;
-  } catch (e) {
+  } catch (_) {
     return {};
   }
 }
@@ -36,8 +36,8 @@ export function clearFilters(pageKey = "") {
     } else {
       sessionStorage.removeItem(FILTER_STORAGE_KEY);
     }
-  } catch (e) {
-    console.warn("清除筛选条件失败", e);
+  } catch (error) {
+    console.warn("清除筛选条件失败", error);
   }
 }
 

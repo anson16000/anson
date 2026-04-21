@@ -4,6 +4,11 @@ function alignClass(value = "left") {
   return value === "right" ? "text-right" : value === "center" ? "text-center" : "";
 }
 
+function sortIcon(active, dir) {
+  if (!active) return " ↕";
+  return dir === "asc" ? " ▲" : " ▼";
+}
+
 export function renderTable(selector, columns, rows, options = {}) {
   const host = requireElement(selector);
   const emptyText = options.emptyText || "当前筛选范围暂无数据";
@@ -18,7 +23,7 @@ export function renderTable(selector, columns, rows, options = {}) {
   let currentSortDir = host.dataset.sortDir || "desc";
 
   function doSort(key, dir) {
-    const col = columns.find((c) => c.key === key);
+    const col = columns.find((item) => item.key === key);
     const sortType = col?.sortType || "auto";
     sortedRows = [...rows].sort((a, b) => {
       const av = a?.[key];
@@ -26,14 +31,18 @@ export function renderTable(selector, columns, rows, options = {}) {
       if (av == null || av === "-") return 1;
       if (bv == null || bv === "-") return -1;
       if (sortType === "string") {
-        return dir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+        return dir === "asc"
+          ? String(av).localeCompare(String(bv), "zh-CN")
+          : String(bv).localeCompare(String(av), "zh-CN");
       }
       const an = Number(av);
       const bn = Number(bv);
-      if (!isNaN(an) && !isNaN(bn) && sortType !== "string") {
+      if (!Number.isNaN(an) && !Number.isNaN(bn)) {
         return dir === "asc" ? an - bn : bn - an;
       }
-      return dir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+      return dir === "asc"
+        ? String(av).localeCompare(String(bv), "zh-CN")
+        : String(bv).localeCompare(String(av), "zh-CN");
     });
     currentSortKey = key;
     currentSortDir = dir;
@@ -47,111 +56,97 @@ export function renderTable(selector, columns, rows, options = {}) {
     const html = columns
       .map((column) => {
         const cls = alignClass(column.align);
-        if (column.sortable) {
-          const isActive = currentSortKey === column.key;
-          const icon = isActive
-            ? (currentSortDir === "asc" ? " ▲" : " ▼")
-            : " ⇅";
-          const activeCls = isActive ? " sort-active" : "";
-          return `<th class="${cls} sortable${activeCls}" data-key="${column.key}">${escapeHtml(column.label)}<span class="sort-icon">${icon}</span></th>`;
+        if (!column.sortable) {
+          return `<th class="${cls}">${escapeHtml(column.label)}</th>`;
         }
-        return `<th class="${cls}">${escapeHtml(column.label)}</th>`;
+        const active = currentSortKey === column.key;
+        return `<th class="${cls} sortable${active ? " sort-active" : ""}" data-key="${column.key}">${escapeHtml(column.label)}<span class="sort-icon">${sortIcon(active, currentSortDir)}</span></th>`;
       })
       .join("");
-    const theadRow = host.querySelector("thead tr");
-    if (theadRow) theadRow.innerHTML = html;
+    const row = host.querySelector("thead tr");
+    if (row) row.innerHTML = html;
   }
 
   function renderBody() {
     const html = sortedRows
       .map((row) => {
-        const cells = columns.map((column) => {
-          const rawValue = row?.[column.key];
-          let displayValue = rawValue;
-          if (column.render) {
-            displayValue = column.render(rawValue, row);
-          }
-          let cellContent = escapeHtml(displayValue ?? "-");
-          if (column.href && rawValue != null) {
-            const url = typeof column.href === "function" ? column.href(rawValue, row) : column.href.replace("{value}", encodeURIComponent(rawValue));
-            cellContent = `<a class="table-link" href="${url}">${cellContent}</a>`;
-          }
-          return `<td class="${alignClass(column.align)}">${cellContent}</td>`;
-        });
-        return `<tr>${cells.join("")}</tr>`;
+        const cells = columns
+          .map((column) => {
+            const rawValue = row?.[column.key];
+            let displayValue = rawValue;
+            if (column.render) displayValue = column.render(rawValue, row);
+            let content = escapeHtml(displayValue ?? "-");
+            if (column.href && rawValue != null) {
+              const url = typeof column.href === "function"
+                ? column.href(rawValue, row)
+                : column.href.replace("{value}", encodeURIComponent(rawValue));
+              content = `<a class="table-link" href="${url}">${content}</a>`;
+            }
+            return `<td class="${alignClass(column.align)}">${content}</td>`;
+          })
+          .join("");
+        return `<tr>${cells}</tr>`;
       })
       .join("");
-    const tbodyEl = host.querySelector("tbody");
-    if (tbodyEl) tbodyEl.innerHTML = html;
+    const body = host.querySelector("tbody");
+    if (body) body.innerHTML = html;
   }
 
-  function buildTable() {
-    const theadHtml = columns
-      .map((column) => {
-        const cls = alignClass(column.align);
-        if (column.sortable) {
-          const isActive = currentSortKey === column.key;
-          const icon = isActive
-            ? (currentSortDir === "asc" ? " ▲" : " ▼")
-            : " ⇅";
-          const activeCls = isActive ? " sort-active" : "";
-          return `<th class="${cls} sortable${activeCls}" data-key="${column.key}">${escapeHtml(column.label)}<span class="sort-icon">${icon}</span></th>`;
-        }
+  const headHtml = columns
+    .map((column) => {
+      const cls = alignClass(column.align);
+      if (!column.sortable) {
         return `<th class="${cls}">${escapeHtml(column.label)}</th>`;
-      })
-      .join("");
+      }
+      const active = currentSortKey === column.key;
+      return `<th class="${cls} sortable${active ? " sort-active" : ""}" data-key="${column.key}">${escapeHtml(column.label)}<span class="sort-icon">${sortIcon(active, currentSortDir)}</span></th>`;
+    })
+    .join("");
 
-    const tbodyHtml = sortedRows
-      .map((row) => {
-        const cells = columns.map((column) => {
+  const bodyHtml = sortedRows
+    .map((row) => {
+      const cells = columns
+        .map((column) => {
           const rawValue = row?.[column.key];
           let displayValue = rawValue;
-          if (column.render) {
-            displayValue = column.render(rawValue, row);
-          }
-          let cellContent = escapeHtml(displayValue ?? "-");
+          if (column.render) displayValue = column.render(rawValue, row);
+          let content = escapeHtml(displayValue ?? "-");
           if (column.href && rawValue != null) {
-            const url = typeof column.href === "function" ? column.href(rawValue, row) : column.href.replace("{value}", encodeURIComponent(rawValue));
-            cellContent = `<a class="table-link" href="${url}">${cellContent}</a>`;
+            const url = typeof column.href === "function"
+              ? column.href(rawValue, row)
+              : column.href.replace("{value}", encodeURIComponent(rawValue));
+            content = `<a class="table-link" href="${url}">${content}</a>`;
           }
-          return `<td class="${alignClass(column.align)}">${cellContent}</td>`;
-        });
-        return `<tr>${cells.join("")}</tr>`;
-      })
-      .join("");
+          return `<td class="${alignClass(column.align)}">${content}</td>`;
+        })
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
 
-    host.innerHTML = `
-      <table class="data-table">
-        <thead><tr>${theadHtml}</tr></thead>
-        <tbody>${tbodyHtml}</tbody>
-      </table>
-    `;
-  }
+  host.innerHTML = `
+    <table class="data-table">
+      <thead><tr>${headHtml}</tr></thead>
+      <tbody>${bodyHtml}</tbody>
+    </table>
+  `;
 
-  buildTable();
-
-  // Apply initial sort if specified
   if (currentSortKey) {
     doSort(currentSortKey, currentSortDir);
   }
 
-  // Bind sort events on thead
-  host.querySelector("thead").addEventListener("click", (e) => {
-    const th = e.target.closest("th.sortable");
-    if (!th) return;
-    // Don't sort if clicking a link inside the header
-    if (e.target.closest("a")) return;
+  host.querySelector("thead")?.addEventListener("click", (event) => {
+    const th = event.target.closest("th.sortable");
+    if (!th || event.target.closest("a")) return;
     const key = th.dataset.key;
     const dir = currentSortKey === key && currentSortDir === "desc" ? "asc" : "desc";
     doSort(key, dir);
   });
 
-  // Allow links in table body to work normally (no sort interference)
-  host.querySelector("tbody").addEventListener("click", (e) => {
-    const link = e.target.closest("a.table-link");
+  host.querySelector("tbody")?.addEventListener("click", (event) => {
+    const link = event.target.closest("a.table-link");
     if (!link) return;
-    e.stopPropagation();
-    // Save shared partner_id to sessionStorage before navigation
+    event.stopPropagation();
     try {
       const url = new URL(link.href, window.location.origin);
       const partnerId = url.searchParams.get("partner_id");
@@ -160,21 +155,21 @@ export function renderTable(selector, columns, rows, options = {}) {
         data._shared_partner_id = partnerId;
         sessionStorage.setItem("dashboard_filters", JSON.stringify(data));
       }
-    } catch (_) { /* ignore */ }
+    } catch (_) {
+      // ignore malformed links
+    }
   });
 }
 
 export function renderCards(selector, cards) {
   const host = requireElement(selector);
   host.innerHTML = (cards || [])
-    .map(
-      (item) => `
-        <article class="card metric-card">
-          <span class="metric-label">${escapeHtml(item.label)}</span>
-          <strong class="metric-value">${escapeHtml(item.value ?? "-")}</strong>
-        </article>
-      `,
-    )
+    .map((item) => `
+      <article class="card metric-card">
+        <span class="metric-label">${escapeHtml(item.label)}</span>
+        <strong class="metric-value">${escapeHtml(item.value ?? "-")}</strong>
+      </article>
+    `)
     .join("");
 }
 
@@ -185,7 +180,5 @@ export function renderTags(selector, tags, options = {}) {
     host.innerHTML = `<div class="empty empty-inline">${escapeHtml(emptyText)}</div>`;
     return;
   }
-  host.innerHTML = tags
-    .map((item) => `<span class="tag">${escapeHtml(item)}</span>`)
-    .join("");
+  host.innerHTML = tags.map((item) => `<span class="tag">${escapeHtml(item)}</span>`).join("");
 }

@@ -26,7 +26,7 @@ export function formatPercent(value) {
 }
 
 export function formatMoney(value) {
-  return `￥${new Intl.NumberFormat("zh-CN", {
+  return `¥${new Intl.NumberFormat("zh-CN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(value || 0))}`;
@@ -61,14 +61,18 @@ export function renderSystemMeta(meta, { prefix = "" } = {}) {
 function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
-  if (isNaN(date.getTime())) return String(value);
-  return date.toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 }
 
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
-  if (isNaN(date.getTime())) return String(value);
+  if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleString("zh-CN", {
     year: "numeric",
     month: "2-digit",

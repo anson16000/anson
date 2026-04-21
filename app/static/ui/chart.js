@@ -17,14 +17,13 @@ export function renderLineChart(selector, labels, series, options = {}) {
   const stepX = labels.length > 1 ? chartWidth / (labels.length - 1) : chartWidth;
   const colors = ["#217346", "#5b708b", "#c88425", "#c75146"];
 
-  const linePath = (values) =>
-    values
-      .map((value, index) => {
-        const x = margin.left + stepX * index;
-        const y = margin.top + chartHeight - (Number(value || 0) / maxValue) * chartHeight;
-        return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
-      })
-      .join(" ");
+  const linePath = (values) => values
+    .map((value, index) => {
+      const x = margin.left + stepX * index;
+      const y = margin.top + chartHeight - (Number(value || 0) / maxValue) * chartHeight;
+      return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
 
   const gridLines = [0, 0.25, 0.5, 0.75, 1]
     .map((ratio) => {
@@ -46,14 +45,12 @@ export function renderLineChart(selector, labels, series, options = {}) {
     .join("");
 
   const legend = series
-    .map(
-      (item, index) => `
-        <g transform="translate(${margin.left + index * 168}, 12)">
-          <rect x="-2" y="-5" width="10" height="10" rx="2" fill="${colors[index % colors.length]}" />
-          <text x="14" y="4" class="axis-label">${escapeHtml(item.name)}</text>
-        </g>
-      `,
-    )
+    .map((item, index) => `
+      <g transform="translate(${margin.left + index * 168}, 12)">
+        <rect x="-2" y="-5" width="10" height="10" rx="2" fill="${colors[index % colors.length]}" />
+        <text x="14" y="4" class="axis-label">${escapeHtml(item.name)}</text>
+      </g>
+    `)
     .join("");
 
   const paths = series

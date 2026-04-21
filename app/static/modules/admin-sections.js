@@ -21,8 +21,8 @@ function getSharedPartnerParam() {
     if (pid) params.set("partner_id", pid);
     if (sd) params.set("start_date", sd);
     if (ed) params.set("end_date", ed);
-    const str = params.toString();
-    return str ? `?${str}` : "";
+    const text = params.toString();
+    return text ? `?${text}` : "";
   } catch (_) {
     return "";
   }
@@ -36,13 +36,13 @@ export function renderAdminConclusion(metrics) {
     `取消率 ${formatPercent(summary.cancel_rate)}`,
   ];
   if ((summary.valid_completion_rate || 0) < 0.8) tags.push("有效订单完成率仍有提升空间");
-  if ((summary.new_partners || 0) > 0) tags.push(`新合伙人 ${formatNumber(summary.new_partners)} 个，可继续跟进首月表现`);
+  if ((summary.new_partners || 0) > 0) tags.push(`新合伙人 ${formatNumber(summary.new_partners)} 个，可继续跟进首期表现`);
   renderTags("#adminConclusion", tags);
-  const sp = getSharedPartnerParam();
+  const search = getSharedPartnerParam();
   setHtml("#adminDrillLinks", `
-    <a class="drill-link" href="/alerts${sp}">查看风险区域和预警详情</a>
-    <a class="drill-link" href="/partner/hourly${sp}">查看时段热力与履约</a>
-    <a class="drill-link" href="/partner/entities${sp}">查看主体结构分析</a>
+    <a class="drill-link" href="/alerts${search}">查看风险区域和预警详情</a>
+    <a class="drill-link" href="/partner/hourly${search}">查看时段热力与履约</a>
+    <a class="drill-link" href="/partner/entities${search}">查看主体分析</a>
   `);
 }
 
@@ -50,10 +50,10 @@ export function renderAdminSummaryCards(metrics) {
   const summary = metrics.summary || {};
   renderCards("#adminCards .kpi-tier-result", [
     { label: "完成订单", value: formatNumber(summary.completed_orders) },
-    { label: "完成订单/有效订单", value: formatPercent(summary.completed_orders / summary.valid_orders || 0) },
+    { label: "完成订单 / 有效订单", value: formatPercent(summary.completed_orders / summary.valid_orders || 0) },
     { label: "取消率", value: formatPercent(summary.cancel_rate) },
     { label: "经营利润", value: formatMoney(summary.partner_profit_total) },
-    { label: "风险区域数", value: formatNumber(metrics.risk_partner_items?.length || 0) },
+    { label: "风险加盟商", value: formatNumber(metrics.risk_partner_items?.length || 0) },
   ]);
   renderCards("#adminCards .kpi-tier-process", [
     { label: "总订单", value: formatNumber(summary.total_orders) },
@@ -65,7 +65,7 @@ export function renderAdminSummaryCards(metrics) {
   renderCards("#adminCards .kpi-tier-action", [
     { label: "新骑手数", value: formatNumber(summary.new_riders) },
     { label: "新商家数", value: formatNumber(summary.new_merchants) },
-    { label: "新合伙人", value: formatNumber(summary.new_partners) },
+    { label: "新合伙人数", value: formatNumber(summary.new_partners) },
     { label: "总部补贴", value: formatMoney(summary.hq_subsidy_total) },
     { label: "合伙人补贴", value: formatMoney(summary.partner_subsidy_total) },
   ]);
@@ -80,7 +80,7 @@ export function renderAdminTrend(metrics) {
 }
 
 export function renderRegionRanking(rows) {
-  const sp = getSharedPartnerParam();
+  const search = getSharedPartnerParam();
   renderTable(
     "#regionRankingTable",
     [
@@ -89,10 +89,7 @@ export function renderRegionRanking(rows) {
         key: "region",
         label: "区域",
         sortable: true,
-        href: (value, row) => {
-          if (row.partner_id) return `/partner?partner_id=${encodeURIComponent(row.partner_id)}${sp}`;
-          return "#";
-        },
+        href: (value, row) => (row.partner_id ? `/partner?partner_id=${encodeURIComponent(row.partner_id)}${search}` : "#"),
       },
       { key: "total_orders", label: "总订单", sortable: true, render: formatNumber, align: "right" },
       { key: "valid_orders", label: "有效订单", sortable: true, render: formatNumber, align: "right" },
@@ -115,36 +112,34 @@ export function renderPartnerDailyComparison(data) {
     requireElement("#partnerDailyComparisonTable").innerHTML = '<div class="empty empty-inline">当前暂无近3天单量对比数据</div>';
     return;
   }
-  // Get unique dates and partners
-  const dates = [...new Set(data.map((d) => d.date))].sort().slice(-3);
+
+  const dates = [...new Set(data.map((item) => item.date))].sort().slice(-3);
   const partnerMap = {};
-  data.forEach((d) => {
-    if (!partnerMap[d.partner_id]) {
-      partnerMap[d.partner_id] = { partner_id: d.partner_id, partner_name: d.partner_name };
+  data.forEach((item) => {
+    if (!partnerMap[item.partner_id]) {
+      partnerMap[item.partner_id] = { partner_id: item.partner_id, partner_name: item.partner_name };
     }
-    partnerMap[d.partner_id][d.date] = d.completed_orders;
+    partnerMap[item.partner_id][item.date] = item.completed_orders;
   });
   const partners = Object.values(partnerMap);
 
   const columns = [
     { key: "partner_id", label: "合伙人ID", sortType: "string" },
     { key: "partner_name", label: "合伙人名称" },
-    ...dates.map((d) => ({
-      key: d,
-      label: d.slice(5),
+    ...dates.map((date) => ({
+      key: date,
+      label: date.slice(5),
       sortable: true,
-      render: (v) => (v != null ? formatNumber(v) : "-"),
+      render: (value) => (value != null ? formatNumber(value) : "-"),
       align: "right",
     })),
     {
       key: "_trend",
       label: "趋势",
-      render: (v, row) => {
-        const vals = dates.map((d) => row[d]).filter((x) => x != null);
+      render: (value, row) => {
+        const vals = dates.map((date) => row[date]).filter((item) => item != null);
         if (vals.length < 2) return "-";
-        const first = vals[0];
-        const last = vals[vals.length - 1];
-        const diff = last - first;
+        const diff = vals[vals.length - 1] - vals[0];
         const sign = diff > 0 ? "+" : "";
         return `<span class="${diff > 0 ? "trend-up" : diff < 0 ? "trend-down" : ""}">${sign}${diff}</span>`;
       },
@@ -174,7 +169,7 @@ export function renderNewPartnerTable(items, selector = "#newPartnerTable", empt
     selector,
     [
       { key: "partner_id", label: "合伙人ID", sortType: "string" },
-      { key: "partner_name", label: "合伙人" },
+      { key: "partner_name", label: "合伙人名称" },
       { key: "open_date", label: "开城时间" },
       { key: "completed_orders", label: "完成订单", render: formatNumber, align: "right" },
     ],
@@ -195,9 +190,9 @@ export function renderAnomalySummary(metrics) {
   setHtml("#anomalySummary", `
     <div class="anomaly-column">
       <h4 class="anomaly-danger">完成率最低 5 个区域</h4>
-      ${top5LowCompletion.map((item, i) => `
+      ${top5LowCompletion.map((item, index) => `
         <div class="anomaly-item">
-          <span class="anomaly-rank">${i + 1}</span>
+          <span class="anomaly-rank">${index + 1}</span>
           <span class="anomaly-name">${item.region || "-"}</span>
           <span class="anomaly-value danger">${formatPercent(item.completion_rate)}</span>
         </div>
@@ -205,9 +200,9 @@ export function renderAnomalySummary(metrics) {
     </div>
     <div class="anomaly-column">
       <h4 class="anomaly-warn">取消率最高 5 个区域</h4>
-      ${top5HighCancel.map((item, i) => `
+      ${top5HighCancel.map((item, index) => `
         <div class="anomaly-item">
-          <span class="anomaly-rank">${i + 1}</span>
+          <span class="anomaly-rank">${index + 1}</span>
           <span class="anomaly-name">${item.region || "-"}</span>
           <span class="anomaly-value warn">${formatPercent(item.cancel_rate)}</span>
         </div>
@@ -215,9 +210,9 @@ export function renderAnomalySummary(metrics) {
     </div>
     <div class="anomaly-column">
       <h4 class="anomaly-muted">经营利润最低 5 个区域</h4>
-      ${top5LowProfit.map((item, i) => `
+      ${top5LowProfit.map((item, index) => `
         <div class="anomaly-item">
-          <span class="anomaly-rank">${i + 1}</span>
+          <span class="anomaly-rank">${index + 1}</span>
           <span class="anomaly-name">${item.region || "-"}</span>
           <span class="anomaly-value">${formatMoney(item.partner_profit)}</span>
         </div>

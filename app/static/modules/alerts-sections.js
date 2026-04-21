@@ -19,8 +19,8 @@ function getSharedPartnerParam() {
     if (pid) params.set("partner_id", pid);
     if (sd) params.set("start_date", sd);
     if (ed) params.set("end_date", ed);
-    const str = params.toString();
-    return str ? `?${str}` : "";
+    const text = params.toString();
+    return text ? `?${text}` : "";
   } catch (_) {
     return "";
   }
@@ -29,7 +29,7 @@ function getSharedPartnerParam() {
 function partnerColumns(includeScore = false) {
   const columns = [
     { key: "partner_id", label: "合伙人ID", sortType: "string" },
-    { key: "partner_name", label: "合伙人" },
+    { key: "partner_name", label: "合伙人名称" },
     { key: "total_orders", label: "总订单", render: formatNumber, align: "right" },
     { key: "valid_orders", label: "有效订单", render: formatNumber, align: "right" },
     { key: "completed_orders", label: "完成订单", render: formatNumber, align: "right" },
@@ -42,7 +42,9 @@ function partnerColumns(includeScore = false) {
     { key: "avg_ticket_price", label: "订单均价", render: formatMoney, align: "right" },
     { key: "partner_profit", label: "经营利润", render: formatMoney, align: "right" },
   ];
-  if (includeScore) columns.push({ key: "total_score", label: "健康度评分", render: formatDecimal, align: "right" });
+  if (includeScore) {
+    columns.push({ key: "total_score", label: "健康度评分", render: formatDecimal, align: "right" });
+  }
   return columns;
 }
 
@@ -54,7 +56,9 @@ export function renderAlertsSummary(metrics, health) {
     `风险 ${formatNumber(summary.red_count)} 家`,
     `平均健康度 ${formatDecimal(summary.average_score)}`,
   ];
-  if ((summary.red_count || 0) > 0) tags.push("建议优先处理风险加盟商和波动预警");
+  if ((summary.red_count || 0) > 0) {
+    tags.push("建议优先处理风险加盟商和波动预警");
+  }
   renderTags("#alertsConclusion", tags);
   setHtml("#alertsDrillLinks", `
     <a class="drill-link" href="/partner/entities${getSharedPartnerParam()}">主体分析：查看贡献结构和关键名单</a>
@@ -81,7 +85,7 @@ export function renderAlertsTables(metrics, health, fluctuation) {
     "#alertsHealthTable",
     [
       { key: "partner_id", label: "合伙人ID", sortType: "string" },
-      { key: "partner_name", label: "合伙人" },
+      { key: "partner_name", label: "合伙人名称" },
       { key: "total_score", label: "总分", render: formatDecimal, align: "right" },
       { key: "label", label: "状态" },
       { key: "issues", label: "主要问题", render: (value) => (Array.isArray(value) ? value.join(" / ") : "") },
@@ -93,7 +97,7 @@ export function renderAlertsTables(metrics, health, fluctuation) {
     "#alertsFluctuationTable",
     [
       { key: "partner_id", label: "合伙人ID", sortType: "string" },
-      { key: "partner_name", label: "合伙人" },
+      { key: "partner_name", label: "合伙人名称" },
       { key: "city_level", label: "城市档位" },
       { key: "latest_completed_orders", label: "最新完成订单", render: formatNumber, align: "right" },
       { key: "baseline_completed_orders", label: "基线完成订单", render: formatDecimal, align: "right" },

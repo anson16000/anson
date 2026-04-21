@@ -1,6 +1,7 @@
 import unittest
 from contextlib import contextmanager
 from datetime import date
+from pathlib import Path
 from unittest.mock import patch
 
 from fastapi import HTTPException
@@ -111,6 +112,10 @@ class ApiContractsTestCase(unittest.TestCase):
         args = parser.parse_args(["import", "--mode", "force"])
         self.assertEqual(args.command, "import")
         self.assertEqual(args.mode, "force")
+
+    def test_main_enables_uvicorn_without_colors(self):
+        main_source = (Path(__file__).resolve().parents[1] / "main.py").read_text(encoding="utf-8")
+        self.assertIn("use_colors=False", main_source)
 
 
 if __name__ == "__main__":

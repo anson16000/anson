@@ -62,9 +62,8 @@ export function addDateShortcuts(startSelector, endSelector, latestDate) {
   const startInput = requireElement(startSelector);
   const endInput = requireElement(endSelector);
   const parentLabel = startInput.closest("label.field");
-  if (!parentLabel) return;
+  if (!parentLabel?.parentElement) return;
 
-  // Avoid duplicate insertion on repeated populateFilters calls
   const existing = parentLabel.parentElement.querySelector(".date-shortcuts");
   if (existing) return;
 
@@ -83,13 +82,13 @@ export function addDateShortcuts(startSelector, endSelector, latestDate) {
     btn.type = "button";
     btn.className = "date-shortcut-btn";
     btn.textContent = label;
-    btn.dataset.days = days;
+    btn.dataset.days = String(days);
     btn.addEventListener("click", () => {
       const end = latestDate;
       const start = days === 0 ? latestDate : toDateOnlyStr(latestDate, -days);
       startInput.value = start;
       endInput.value = end;
-      buttons.forEach((b) => b.classList.toggle("active", b === btn));
+      buttons.forEach((item) => item.classList.toggle("active", item === btn));
       startInput.dispatchEvent(new Event("change", { bubbles: true }));
     });
     container.appendChild(btn);
@@ -98,14 +97,12 @@ export function addDateShortcuts(startSelector, endSelector, latestDate) {
 
   parentLabel.parentElement.insertBefore(container, parentLabel);
 
-  // Auto-highlight matching shortcut after initial setDateRange
   requestAnimationFrame(() => {
     const sv = startInput.value;
     const ev = endInput.value;
-    if (sv && ev) {
-      const diff = Math.floor((toDateOnly(ev) - toDateOnly(sv)) / 86400000);
-      const match = buttons.find((b) => Number(b.dataset.days) === diff);
-      if (match) match.classList.add("active");
-    }
+    if (!sv || !ev) return;
+    const diff = Math.floor((toDateOnly(ev) - toDateOnly(sv)) / 86400000);
+    const match = buttons.find((item) => Number(item.dataset.days) === diff);
+    if (match) match.classList.add("active");
   });
 }

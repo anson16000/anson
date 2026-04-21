@@ -20,17 +20,16 @@
       document.addEventListener("DOMContentLoaded", () => {
         try {
           const data = JSON.parse(sessionStorage.getItem("dashboard_filters") || "{}");
-          const pid = data._shared_partner_id;
-          const sd = data._shared_start_date;
-          const ed = data._shared_end_date;
-          document.querySelectorAll(".top-nav .nav-link").forEach((a) => {
-            if (a.getAttribute("href").startsWith("/partner")) {
-              const url = new URL(a.href, window.location.origin);
-              if (pid) url.searchParams.set("partner_id", pid);
-              if (sd) url.searchParams.set("start_date", sd);
-              if (ed) url.searchParams.set("end_date", ed);
-              a.href = url.pathname + url.search;
-            }
+          const partnerId = data._shared_partner_id;
+          const startDate = data._shared_start_date;
+          const endDate = data._shared_end_date;
+          document.querySelectorAll(".top-nav .nav-link").forEach((link) => {
+            if (!link.getAttribute("href").startsWith("/partner")) return;
+            const url = new URL(link.href, window.location.origin);
+            if (partnerId) url.searchParams.set("partner_id", partnerId);
+            if (startDate) url.searchParams.set("start_date", startDate);
+            if (endDate) url.searchParams.set("end_date", endDate);
+            link.href = url.pathname + url.search;
           });
         } catch (_) {}
       });
@@ -41,7 +40,7 @@
         <p class="page-tag">时段承接与履约专题</p>
         <h1>时段热力与履约</h1>
         <p class="page-desc">专门看小时运力、热力图、准时率和 SLA 履约情况，帮助定位高峰问题和履约异常。</p>
-        <p class="page-mission">页面使命：看供需错配集中在哪些时段/日期</p>
+        <p class="page-mission">页面使命：看供需错配集中在哪些时段与日期。</p>
       </div>
       <div class="page-meta-grid">
         <div class="meta-card"><span>最后导入时间</span><strong id="hourlylastImportTime">-</strong></div>

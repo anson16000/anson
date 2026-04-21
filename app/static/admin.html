@@ -20,19 +20,20 @@
       document.addEventListener("DOMContentLoaded", () => {
         try {
           const data = JSON.parse(sessionStorage.getItem("dashboard_filters") || "{}");
-          const pid = data._shared_partner_id;
-          const sd = data._shared_start_date;
-          const ed = data._shared_end_date;
-          document.querySelectorAll(".top-nav .nav-link").forEach((a) => {
-            if (a.getAttribute("href").startsWith("/partner")) {
-              const url = new URL(a.href, window.location.origin);
-              if (pid) url.searchParams.set("partner_id", pid);
-              if (sd) url.searchParams.set("start_date", sd);
-              if (ed) url.searchParams.set("end_date", ed);
-              a.href = url.pathname + url.search;
-            }
+          const partnerId = data._shared_partner_id;
+          const startDate = data._shared_start_date;
+          const endDate = data._shared_end_date;
+          document.querySelectorAll(".top-nav .nav-link").forEach((link) => {
+            if (!link.getAttribute("href").startsWith("/partner")) return;
+            const url = new URL(link.href, window.location.origin);
+            if (partnerId) url.searchParams.set("partner_id", partnerId);
+            if (startDate) url.searchParams.set("start_date", startDate);
+            if (endDate) url.searchParams.set("end_date", endDate);
+            link.href = url.pathname + url.search;
           });
-        } catch (_) {}
+        } catch (_) {
+          // ignore session storage errors
+        }
       });
     </script>
 
@@ -40,8 +41,8 @@
       <div class="page-header-main">
         <p class="page-tag">全国总览与排名首页</p>
         <h1>全国总览</h1>
-        <p class="page-desc">只保留全国趋势、区域排名、加盟商分层与新合伙人表现，风险预警和健康度已独立到诊断预警页。</p>
-        <p class="page-mission">页面使命：看全国盘子是否健康，定位问题区域和重点对象</p>
+        <p class="page-desc">只保留全国趋势、区域排名、加盟商分层与新合伙人表现，风险预警与健康度已独立到诊断预警页。</p>
+        <p class="page-mission">页面使命：看全国盘子是否健康，定位问题区域和重点对象。</p>
       </div>
       <div class="page-meta-grid">
         <div class="meta-card">
@@ -63,7 +64,7 @@
       <div class="toolbar-head">
         <div>
           <h2>筛选条件</h2>
-          <p>单次查询最多支持 31 天，一级筛选：日期、城市/区域、合伙人；更多筛选：日均单量分层等</p>
+          <p>全国总览支持日期、省、市、区、合伙人、活跃阈值与分层配置。单次查询最多支持 31 天。</p>
         </div>
         <button id="refreshAdmin" class="btn">刷新数据</button>
       </div>
@@ -176,14 +177,14 @@
       <article class="report-card">
         <div class="card-head">
           <h3>区域经营排名</h3>
-          <span>支持全部 / 省份 / 城市切换，点击区域名称可跳转到城市经营页面</span>
+          <span>支持全部 / 省份 / 城市切换，点击区域名称可跳转到城市经营页。</span>
         </div>
         <div id="regionRankingTable" class="table-wrap"></div>
       </article>
       <article class="report-card">
         <div class="card-head">
-          <h3>近3天所有合伙人单量对比</h3>
-          <span>展示近3天每日各合伙人完成单量及变化趋势</span>
+          <h3>近 3 天合伙人完成单量对比</h3>
+          <span>展示近 3 天每个合伙人的完成订单与变化趋势。</span>
         </div>
         <div id="partnerDailyComparisonTable" class="table-wrap"></div>
       </article>
@@ -209,15 +210,15 @@
         </div>
       </div>
       <article class="report-card">
-        <div class="card-head"><h3>30日表现</h3></div>
+        <div class="card-head"><h3>30 日表现</h3></div>
         <div id="newPartnerTable30" class="table-wrap"></div>
       </article>
       <article class="report-card">
-        <div class="card-head"><h3>60日表现</h3></div>
+        <div class="card-head"><h3>60 日表现</h3></div>
         <div id="newPartnerTable60" class="table-wrap"></div>
       </article>
       <article class="report-card">
-        <div class="card-head"><h3>90日表现</h3></div>
+        <div class="card-head"><h3>90 日表现</h3></div>
         <div id="newPartnerTable90" class="table-wrap"></div>
       </article>
     </section>
