@@ -36,8 +36,12 @@ def build_import_message(
     skipped_files: int,
     touched_months: set[str],
     error_files: int,
+    current_message: str | None = None,
 ) -> tuple[str, str]:
     final_status = status
+    if final_status == "failed":
+        return final_status, (current_message or "导入失败")
+
     message = "导入完成"
     if final_status == "success" and error_files > 0:
         final_status = "partial_success"

@@ -2,7 +2,7 @@ import { $, escapeHtml } from "/static/ui/base.js";
 
 export function createSearchableSelect(
   containerSelector,
-  { placeholder = "输入关键词搜索", allLabel = "全部", onChange = () => {} } = {},
+  { placeholder = "输入关键字搜索", allLabel = "全部", onChange = () => {} } = {},
 ) {
   const host = $(containerSelector);
   if (!host) return null;
@@ -70,13 +70,11 @@ export function createSearchableSelect(
       return;
     }
     menu.innerHTML = filteredOptions
-      .map(
-        (item, index) => `
-          <button type="button" class="search-select-option ${index === activeIndex ? "active" : ""}" data-value="${escapeHtml(item.value)}">
-            ${escapeHtml(item.label)}
-          </button>
-        `,
-      )
+      .map((item, index) => `
+        <button type="button" class="search-select-option ${index === activeIndex ? "active" : ""}" data-value="${escapeHtml(item.value)}">
+          ${escapeHtml(item.label)}
+        </button>
+      `)
       .join("");
   }
 

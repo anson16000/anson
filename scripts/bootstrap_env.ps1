@@ -56,6 +56,21 @@ function Get-PythonVersion {
     }
 }
 
+function Test-PythonExecutable {
+    param([string]$PythonPath)
+
+    if (-not $PythonPath -or -not (Test-Path -LiteralPath $PythonPath)) {
+        return $false
+    }
+
+    try {
+        & $PythonPath -c "import sys" 1>$null 2>$null
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    }
+}
+
 function Resolve-Python {
     param([string]$ProjectRoot)
 
@@ -93,6 +108,10 @@ function Resolve-Python {
 
     foreach ($candidate in $candidates | Select-Object -Unique) {
         if (-not (Test-Path -LiteralPath $candidate)) {
+            continue
+        }
+        if (-not (Test-PythonExecutable -PythonPath $candidate)) {
+            Write-Log "Ignoring unusable Python candidate: $candidate" "WARN"
             continue
         }
         $version = Get-PythonVersion -PythonPath $candidate
@@ -238,6 +257,12 @@ try {
 
     $venvPath = Join-Path $Root ".venv"
     $venvPython = Join-Path $venvPath "Scripts\python.exe"
+    $venvUsable = Test-PythonExecutable -PythonPath $venvPython
+    if ((Test-Path -LiteralPath $venvPath) -and (-not $venvUsable)) {
+        Write-Log "Existing virtual environment is broken. Recreating: $venvPath" "WARN"
+        Remove-Item -LiteralPath $venvPath -Recurse -Force -ErrorAction Stop
+    }
+
     if (-not (Test-Path -LiteralPath $venvPython)) {
         Write-Log "Creating project virtual environment: $venvPath"
         & $python.Path -m venv $venvPath

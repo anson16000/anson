@@ -17,21 +17,19 @@
     </nav>
 
     <script>
-      // Auto-inject partner_id and dates into nav links
       document.addEventListener("DOMContentLoaded", () => {
         try {
           const data = JSON.parse(sessionStorage.getItem("dashboard_filters") || "{}");
-          const pid = data._shared_partner_id;
-          const sd = data._shared_start_date;
-          const ed = data._shared_end_date;
-          document.querySelectorAll(".top-nav .nav-link").forEach((a) => {
-            if (a.getAttribute("href").startsWith("/partner")) {
-              const url = new URL(a.href, window.location.origin);
-              if (pid) url.searchParams.set("partner_id", pid);
-              if (sd) url.searchParams.set("start_date", sd);
-              if (ed) url.searchParams.set("end_date", ed);
-              a.href = url.pathname + url.search;
-            }
+          const partnerId = data._shared_partner_id;
+          const startDate = data._shared_start_date;
+          const endDate = data._shared_end_date;
+          document.querySelectorAll(".top-nav .nav-link").forEach((link) => {
+            if (!link.getAttribute("href").startsWith("/partner")) return;
+            const url = new URL(link.href, window.location.origin);
+            if (partnerId) url.searchParams.set("partner_id", partnerId);
+            if (startDate) url.searchParams.set("start_date", startDate);
+            if (endDate) url.searchParams.set("end_date", endDate);
+            link.href = url.pathname + url.search;
           });
         } catch (_) {}
       });
@@ -41,22 +39,13 @@
       <div class="page-header-main">
         <p class="page-tag">城市经营首页</p>
         <h1>城市经营</h1>
-        <p class="page-desc">保留经营摘要、经营收益、经营专项摘要和问题摘要入口，细分专题请进入时段热力与履约页或主体分析页。</p>
-        <p class="page-mission">页面使命：看单城市经营结果与收入质量，判断是否需要下钻</p>
+        <p class="page-desc">保留经营摘要、经营收益、直营专项摘要和问题摘要入口，细分专题请进入时段热力与履约页或主体分析页。</p>
+        <p class="page-mission">页面使命：看单城市经营结果与收入质量，判断是否需要深入下钻。</p>
       </div>
       <div class="page-meta-grid">
-        <div class="meta-card">
-          <span>最后导入时间</span>
-          <strong id="partnerlastImportTime">-</strong>
-        </div>
-        <div class="meta-card">
-          <span>最新数据日期</span>
-          <strong id="partnerlatestDataDate">-</strong>
-        </div>
-        <div class="meta-card">
-          <span>数据版本</span>
-          <strong id="partnerdataVersion">-</strong>
-        </div>
+        <div class="meta-card"><span>最后导入时间</span><strong id="partnerlastImportTime">-</strong></div>
+        <div class="meta-card"><span>最新数据日期</span><strong id="partnerlatestDataDate">-</strong></div>
+        <div class="meta-card"><span>数据版本</span><strong id="partnerdataVersion">-</strong></div>
       </div>
     </header>
 
@@ -64,35 +53,20 @@
       <div class="toolbar-head">
         <div>
           <h2>筛选条件</h2>
-          <p>请选择日期范围和合伙人，当前页面用于查看经营全貌与经营专项摘要。</p>
+          <p>请选择日期范围和合伙人。当前页面用于查看经营全貌与直营专项摘要。</p>
         </div>
         <button id="refreshPartner" class="btn">刷新数据</button>
       </div>
       <div id="partnerFilterSummary" class="filter-summary"></div>
       <div class="toolbar-grid">
-        <label class="field">
-          <span>开始日期</span>
-          <input id="partnerStartDate" type="date">
-        </label>
-        <label class="field">
-          <span>结束日期</span>
-          <input id="partnerEndDate" type="date">
-        </label>
-        <label class="field field-wide">
-          <span>合伙人</span>
-          <div id="partnerSelectControl"></div>
-        </label>
+        <label class="field"><span>开始日期</span><input id="partnerStartDate" type="date"></label>
+        <label class="field"><span>结束日期</span><input id="partnerEndDate" type="date"></label>
+        <label class="field field-wide"><span>合伙人</span><div id="partnerSelectControl"></div></label>
       </div>
       <button id="partnerFilterToggle" class="filter-toggle">更多筛选</button>
       <div id="partnerFilterMore" class="filter-more">
-        <label class="field">
-          <span>活跃完成单阈值</span>
-          <input id="partnerActiveThreshold" type="number" min="1" value="1">
-        </label>
-        <label class="field">
-          <span>有效取消阈值（分钟）</span>
-          <input id="validCancelThreshold" type="number" min="1" value="5">
-        </label>
+        <label class="field"><span>活跃完成单阈值</span><input id="partnerActiveThreshold" type="number" min="1" value="1"></label>
+        <label class="field"><span>有效取消阈值（分钟）</span><input id="validCancelThreshold" type="number" min="1" value="5"></label>
       </div>
     </section>
 
@@ -118,7 +92,7 @@
     </section>
 
     <section id="directSpecialSection" class="report-section">
-      <div class="section-head"><div><p class="section-kicker">经营专项</p><h2>经营专项摘要</h2></div></div>
+      <div class="section-head"><div><p class="section-kicker">直营专项</p><h2>直营专项摘要</h2></div></div>
       <div id="directSpecialTags" class="tags"></div>
       <div id="directSpecialCards" class="cards summary-strip">
         <div class="kpi-tier kpi-tier-result"><span class="kpi-tier-label">结果指标</span></div>

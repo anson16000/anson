@@ -10,18 +10,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.config import load_settings
-from app.pipeline import init_database
-
-
 def main() -> None:
     settings = load_settings()
-    init_database(settings)
     uvicorn.run(
         "app.api:create_app",
         host=settings.server.host,
         port=settings.server.port,
         reload=settings.server.reload,
         factory=True,
+        use_colors=False,
     )
 
 

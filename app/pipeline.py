@@ -1539,7 +1539,7 @@ def rebuild_ads(session: Session, order_months: set[str], batch_id: str) -> None
                 COUNT(*),
                 SUM(CASE WHEN is_valid_order THEN 1 ELSE 0 END),
                 SUM(CASE WHEN is_completed THEN 1 ELSE 0 END),
-                SUM(CASE CASE WHEN is_cancelled THEN 1 ELSE 0 END),
+                SUM(CASE WHEN is_cancelled THEN 1 ELSE 0 END),
                 ROUND(COALESCE(SUM(CASE WHEN is_completed THEN 1 ELSE 0 END) * 1.0 / NULLIF(SUM(CASE WHEN is_valid_order THEN 1 ELSE 0 END), 0), 0), 4),
                 COUNT(DISTINCT CASE WHEN is_completed AND merchant_id IS NOT NULL AND TRIM(merchant_id) <> '' THEN merchant_id END),
                 COUNT(DISTINCT CASE WHEN is_completed AND is_new_merchant_order AND merchant_id IS NOT NULL AND TRIM(merchant_id) <> '' THEN merchant_id END),
@@ -2121,6 +2121,7 @@ def import_all(settings: Settings, mode: str = "auto") -> ImportResult:
         skipped_files=skipped_files,
         touched_months=touched_months,
         error_files=error_files,
+        current_message=message,
     )
 
     with session_scope(session_factory) as session:

@@ -19,6 +19,8 @@ export async function api(path, params = {}) {
   }
 
   const payload = await response.json();
-  if (payload.code !== 200) throw new Error(payload.message || "接口返回异常");
+  if (payload.code !== 200) {
+    throw new Error(payload.message || "接口返回异常");
+  }
   return payload.data;
 }

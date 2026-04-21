@@ -3,6 +3,7 @@ import path from "node:path";
 
 const root = process.cwd();
 const files = [
+  "app/static/core/date.js",
   "app/static/ui/base.js",
   "app/static/ui/select.js",
   "app/static/modules/admin-sections.js",

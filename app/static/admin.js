@@ -77,20 +77,26 @@ const controller = createPageController({
     setDateRange("#adminStartDate", "#adminEndDate", meta.system.latest_data_date);
     addDateShortcuts("#adminStartDate", "#adminEndDate", meta.system.latest_data_date);
     filtersController.setPartners(meta.partners || []);
-    // 恢复保存的筛选条件
+
     if (savedFilters.province) filtersController.filters.province = savedFilters.province;
     if (savedFilters.city) filtersController.filters.city = savedFilters.city;
     if (savedFilters.district) filtersController.filters.district = savedFilters.district;
     if (savedFilters.partner_id) filtersController.filters.partner_id = savedFilters.partner_id;
     filtersController.render();
-    if (savedFilters.active_completed_threshold) requireElement("#activeCompletedThreshold").value = savedFilters.active_completed_threshold;
-    if (savedFilters.ranking_level) requireElement("#rankingLevel").value = savedFilters.ranking_level;
-    if (savedFilters.partner_tiers) requireElement("#partnerTierInput").value = savedFilters.partner_tiers;
+
+    if (savedFilters.active_completed_threshold) {
+      requireElement("#activeCompletedThreshold").value = savedFilters.active_completed_threshold;
+    }
+    if (savedFilters.ranking_level) {
+      requireElement("#rankingLevel").value = savedFilters.ranking_level;
+    }
+    if (savedFilters.partner_tiers) {
+      requireElement("#partnerTierInput").value = savedFilters.partner_tiers;
+    }
   },
-  bindEvents: ({ loadPage, bindRefresh, bindChange }) => {
+  bindEvents: ({ bindRefresh, bindChange }) => {
     bindRefresh("#refreshAdmin");
     bindChange(["#adminStartDate", "#adminEndDate", "#activeCompletedThreshold", "#rankingLevel", "#partnerTierInput"]);
-    // 更多筛选折叠
     requireElement("#adminFilterToggle").addEventListener("click", () => {
       const toggle = requireElement("#adminFilterToggle");
       const more = requireElement("#adminFilterMore");
@@ -109,7 +115,6 @@ const controller = createPageController({
       ranking_level: "区域排名维度",
     };
     renderFilterSummary("#adminFilterSummary", filters, labelMap);
-    // Save shared state for cross-page navigation
     try {
       const data = JSON.parse(sessionStorage.getItem("dashboard_filters") || "{}");
       if (filters.partner_id) data._shared_partner_id = filters.partner_id;
@@ -117,7 +122,9 @@ const controller = createPageController({
       if (filters.start_date) data._shared_start_date = filters.start_date;
       if (filters.end_date) data._shared_end_date = filters.end_date;
       sessionStorage.setItem("dashboard_filters", JSON.stringify(data));
-    } catch (_) {}
+    } catch (_) {
+      // ignore storage failures
+    }
   },
   loadData: async (filters) => {
     const metrics = await api("/api/v1/admin/metrics", filters);
