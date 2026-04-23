@@ -66,7 +66,7 @@ from app.utils import (
 
 
 ORDER_FIELD_MAP = {
-    "order_id": ["订单id", "订单ID", "订单编号", "订单号", "order_id"],
+    "order_id": ["订单编号", "订单号", "订单id", "订单ID", "order_id"],
     "partner_id": ["合伙人id", "合伙人ID", "合伙人编号", "partner_id"],
     "partner_name": ["合伙人", "合伙人名称", "合伙人公司名", "合伙人公司名称", "partner_name"],
     "merchant_id": ["商家id", "商家ID", "商户id", "商户ID", "merchant_id"],
@@ -126,10 +126,16 @@ MONTH_PATTERN = re.compile(r"^20\d{2}-(0[1-9]|1[0-2])$")
 IDENTIFIER_FIELDS = {"order_id", "partner_id", "merchant_id", "user_id", "rider_id"}
 
 
-def init_database(settings: Settings):
-    engine, session_factory = create_session_factory(settings)
-    Base.metadata.create_all(engine)
-    _migrate_tables(engine)
+def init_database(
+    settings: Settings,
+    *,
+    ensure_schema: bool = True,
+    read_only: bool = False,
+):
+    engine, session_factory = create_session_factory(settings, read_only=read_only)
+    if ensure_schema:
+        Base.metadata.create_all(engine)
+        _migrate_tables(engine)
     return engine, session_factory
 
 

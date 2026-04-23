@@ -34,50 +34,77 @@ def build_partner_overview_payload(
     partner_profit = partner_income_total - partner_subsidy_total
     valid_cancel_orders = int(amount_row["valid_cancel_orders"] or 0)
 
+    runtime_total_orders = 0
+    runtime_completed_orders = 0
+    runtime_cancelled_orders = 0
+    runtime_valid_orders = 0
+    runtime_new_rider_orders = 0
+    runtime_new_merchant_orders = 0
     on_time_orders = 0
     sla_on_time_orders = 0
     sla_overtime_orders = 0
     sla_completed_base = 0
+
     for row in dwd_rows:
-        if not row.is_completed:
-            continue
-        duration_minutes = calc_duration_minutes(row.accept_time, row.complete_time)
-        if duration_minutes is None:
-            continue
-        sla_completed_base += 1
-        if duration_minutes <= 30:
-            on_time_orders += 1
-        if duration_minutes <= sla_minutes:
-            sla_on_time_orders += 1
-        else:
-            sla_overtime_orders += 1
+        runtime_total_orders += 1
+        if row.is_cancelled:
+            runtime_cancelled_orders += 1
+
+        is_valid_cancel = bool(row.is_cancelled and row.is_paid and (row.pay_cancel_minutes or 0) > threshold)
+
+        if row.is_completed:
+            runtime_completed_orders += 1
+            if row.is_new_rider_order:
+                runtime_new_rider_orders += 1
+            if row.is_new_merchant_order:
+                runtime_new_merchant_orders += 1
+
+            duration_minutes = calc_duration_minutes(row.accept_time, row.complete_time)
+            if duration_minutes is not None:
+                sla_completed_base += 1
+                if duration_minutes <= 30:
+                    on_time_orders += 1
+                if duration_minutes <= sla_minutes:
+                    sla_on_time_orders += 1
+                else:
+                    sla_overtime_orders += 1
+
+        if row.is_completed or is_valid_cancel:
+            runtime_valid_orders += 1
+
+    total_orders = runtime_total_orders if dwd_rows else summary["total_orders"]
+    valid_orders = runtime_valid_orders if dwd_rows else summary["valid_orders"]
+    completed_orders = runtime_completed_orders if dwd_rows else summary["completed_orders"]
+    cancelled_orders = runtime_cancelled_orders if dwd_rows else summary["cancelled_orders"]
+    new_rider_orders = runtime_new_rider_orders if dwd_rows else summary["new_rider_orders"]
+    new_merchant_orders = runtime_new_merchant_orders if dwd_rows else summary["new_merchant_orders"]
 
     health_score = build_health_score(
         {
-            "total_orders": summary["total_orders"],
-            "valid_orders": summary["valid_orders"],
-            "completed_orders": summary["completed_orders"],
-            "cancelled_orders": summary["cancelled_orders"],
+            "total_orders": total_orders,
+            "valid_orders": valid_orders,
+            "completed_orders": completed_orders,
+            "cancelled_orders": cancelled_orders,
             "valid_cancel_orders": valid_cancel_orders,
             "active_riders": active_riders,
             "active_merchants": active_merchants,
-            "new_merchant_orders": summary["new_merchant_orders"],
+            "new_merchant_orders": new_merchant_orders,
             "actual_received_total": actual_received_total,
             "partner_profit": partner_profit,
         },
         day_count=day_count,
     )
 
-    cancel_rate = safe_ratio(summary["cancelled_orders"], summary["total_orders"])
+    cancel_rate = safe_ratio(cancelled_orders, total_orders)
     diagnostics: list[str] = []
     if cancel_rate > 0.20:
-        diagnostics.append("全天取消率偏高，建议优先排查运力响应和超时接单。")
-    if summary["new_rider_orders"] and summary["new_rider_orders"] < summary["completed_orders"] * 0.1:
-        diagnostics.append("新骑手完成贡献偏低，可关注入职后首周激活和带教。")
-    if summary["new_merchant_orders"] and summary["new_merchant_orders"] < summary["completed_orders"] * 0.1:
-        diagnostics.append("新商家完成贡献偏低，可关注首单转化和商家运营跟进。")
+        diagnostics.append("Cancel rate is high. Review capacity response and timeout acceptance.")
+    if new_rider_orders and new_rider_orders < completed_orders * 0.1:
+        diagnostics.append("New rider contribution is low. Review onboarding activation and coaching.")
+    if new_merchant_orders and new_merchant_orders < completed_orders * 0.1:
+        diagnostics.append("New merchant contribution is low. Review first-order conversion and merchant follow-up.")
     if not diagnostics:
-        diagnostics.append("当前城市经营整体平稳。")
+        diagnostics.append("Current city operation is stable.")
 
     return {
         "data_version": info.get("data_version"),
@@ -89,24 +116,24 @@ def build_partner_overview_payload(
         "district": latest_row.district,
         "summary": {
             **build_order_summary(
-                summary["total_orders"],
-                summary["valid_orders"],
-                summary["completed_orders"],
-                summary["cancelled_orders"],
+                total_orders,
+                valid_orders,
+                completed_orders,
+                cancelled_orders,
                 active_merchants=active_merchants,
                 new_merchants=new_merchants,
                 active_riders=active_riders,
                 new_riders=new_riders,
-                efficiency=calc_efficiency(summary["completed_orders"], active_riders),
+                efficiency=calc_efficiency(completed_orders, active_riders),
                 actual_received_total=round(actual_received_total, 2),
                 rider_commission_total=round(rider_commission_total, 2),
                 partner_income_total=round(partner_income_total, 2),
                 partner_subsidy_total=round(partner_subsidy_total, 2),
                 partner_profit=round(partner_profit, 2),
-                avg_ticket_price=round(actual_received_total / summary["completed_orders"], 2) if summary["completed_orders"] else 0.0,
-                rider_avg_commission=round(rider_commission_total / summary["completed_orders"], 2) if summary["completed_orders"] else 0.0,
-                rider_avg_income=round(rider_commission_total / summary["completed_orders"], 2) if summary["completed_orders"] else 0.0,
-                partner_avg_profit=round(partner_profit / summary["completed_orders"], 2) if summary["completed_orders"] else 0.0,
+                avg_ticket_price=round(actual_received_total / completed_orders, 2) if completed_orders else 0.0,
+                rider_avg_commission=round(rider_commission_total / completed_orders, 2) if completed_orders else 0.0,
+                rider_avg_income=round(rider_commission_total / completed_orders, 2) if completed_orders else 0.0,
+                partner_avg_profit=round(partner_profit / completed_orders, 2) if completed_orders else 0.0,
                 on_time_orders=int(on_time_orders),
                 on_time_rate=safe_ratio(on_time_orders, sla_completed_base),
                 sla_minutes=sla_minutes,

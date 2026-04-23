@@ -559,8 +559,13 @@ def _calc_partner_recent_daily(session_factory, ranking_level: str) -> list[dict
 def create_app() -> FastAPI:
     settings = load_settings()
     setup_logging(str(resolve_path(settings.paths.logs)))
-    _, session_factory = init_database(settings)
-    if session_factory:
+    db_exists = resolve_path(settings.database.path).exists()
+    _, session_factory = init_database(
+        settings,
+        ensure_schema=not db_exists,
+        read_only=db_exists,
+    )
+    if session_factory and not db_exists:
         with session_scope(session_factory) as session:
             sync_merchant_shop_names(session, settings)
 
@@ -1587,6 +1592,8 @@ def create_app() -> FastAPI:
         end_date: date | None = None,
         new_flag: str = Query(default="all"),
         rider_tiers: str | None = Query(default=None),
+        target_daily_completed_orders: int = Query(default=10, ge=1),
+        target_completed_days: int = Query(default=10, ge=1),
     ):
         _validate_query_window(start_date, end_date)
         info, _ = partner_rows(partner_id, start_date, end_date)
@@ -1614,6 +1621,10 @@ def create_app() -> FastAPI:
                 info=info,
                 coalesce_text=_coalesce_text,
                 to_iso_date=_to_iso_date,
+                start_date=start_date,
+                end_date=end_date,
+                target_daily_completed_orders=target_daily_completed_orders,
+                target_completed_days=target_completed_days,
             )
         )
 
@@ -1706,8 +1717,19 @@ def create_app() -> FastAPI:
         partner_id: str,
         start_date: date | None = None,
         end_date: date | None = None,
+        rider_tiers: str | None = Query(default=None),
+        target_daily_completed_orders: int = Query(default=10, ge=1),
+        target_completed_days: int = Query(default=10, ge=1),
     ):
-        response = partner_riders(partner_id=partner_id, start_date=start_date, end_date=end_date, new_flag="new", rider_tiers=None)
+        response = partner_riders(
+            partner_id=partner_id,
+            start_date=start_date,
+            end_date=end_date,
+            new_flag="new",
+            rider_tiers=rider_tiers,
+            target_daily_completed_orders=target_daily_completed_orders,
+            target_completed_days=target_completed_days,
+        )
         response["data"] = {
             "data_version": response["data"]["data_version"],
             "latest_ready_month": response["data"]["latest_ready_month"],

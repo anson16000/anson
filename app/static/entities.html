@@ -41,7 +41,7 @@
       <div class="page-header-main">
         <p class="page-tag">骑手、商家与主体结构专题</p>
         <h1>主体分析</h1>
-        <p class="page-desc">专门查看订单来源、骑手、商家、名单明细、用户主体识别与骑手提成结构。</p>
+        <p class="page-desc">专门查看订单来源、骑手、商家、名单明细与用户主体识别。</p>
         <p class="page-mission">页面使命：看合伙人、骑手、商家贡献结构和关键名单。</p>
       </div>
       <div class="page-meta-grid">
@@ -65,9 +65,9 @@
         <label class="field"><span>结束日期</span><input id="entitiesEndDate" type="date"></label>
         <label class="field field-wide"><span>合伙人</span><div id="entitiesPartnerControl"></div></label>
       </div>
-      <button id="entitiesFilterToggle" class="filter-toggle">更多筛选</button>
-      <div id="entitiesFilterMore" class="filter-more">
+      <div id="entitiesFilterMore" class="filter-more show">
         <label class="field"><span>活跃完成单阈值</span><input id="entitiesActiveThreshold" type="number" min="1" value="1"></label>
+        <label class="field field-wide"><span>骑手单量分层</span><input id="entitiesRiderTierInput" type="text" value="1-9,10-29,30-49,50+" placeholder="例如 1-9,10-29,30-49,50+"></label>
       </div>
     </section>
 
@@ -120,8 +120,21 @@
             <option value="old">仅老</option>
           </select>
         </label>
+        <label class="field">
+          <span>达标要求单量</span>
+          <input id="entitiesRiderTargetCompleted" type="number" min="1" value="10">
+        </label>
+        <label class="field">
+          <span>达标要求天数</span>
+          <input id="entitiesRiderTargetDays" type="number" min="1" value="10">
+        </label>
       </div>
       <article class="report-card"><div id="entitiesRiderRosterTable" class="table-wrap"></div></article>
+    </section>
+
+    <section class="report-section">
+      <div class="section-head"><div><p class="section-kicker">骑手单量分层</p><h2>骑手单量分层</h2></div></div>
+      <article class="report-card"><div id="entitiesRiderTierTable" class="table-wrap"></div></article>
     </section>
 
     <section class="report-section">

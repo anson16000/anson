@@ -8,6 +8,7 @@ import {
   renderFilterSummary,
   renderSystemMeta,
   requireElement,
+  saveFilters,
   setDateRange,
   showError,
 } from "/static/common.js";
@@ -106,6 +107,7 @@ const controller = createPageController({
     });
   },
   onSaveFilters: (filters) => {
+    saveFilters(filters, PAGE_KEY);
     const labelMap = {
       province: "省份",
       city: "城市",

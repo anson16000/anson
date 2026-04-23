@@ -26,6 +26,7 @@ class ApiContractsTestCase(unittest.TestCase):
         self.assertIn("/api/v1/partner/{partner_id}/merchants", schema["paths"])
         self.assertIn("/api/v1/partner/{partner_id}/merchant-like-users", schema["paths"])
         self.assertIn("/api/v1/partner/{partner_id}/order-sources", schema["paths"])
+        self.assertIn("/api/v1/partner/{partner_id}/riders", schema["paths"])
         self.assertIn("/api/v1/admin/partners/fluctuation", schema["paths"])
 
     def test_merchant_threshold_only_exists_on_merchant_like_endpoint(self):
@@ -41,6 +42,14 @@ class ApiContractsTestCase(unittest.TestCase):
         self.assertNotIn("merchant_like_threshold", merchant_param_names)
         self.assertIn("merchant_like_threshold", identity_param_names)
         self.assertNotIn("merchant_like_threshold", order_source_param_names)
+
+    def test_riders_endpoint_supports_custom_rider_tiers(self):
+        schema = self.app.openapi()
+        riders_parameters = schema["paths"]["/api/v1/partner/{partner_id}/riders"]["get"]["parameters"]
+        rider_param_names = {item["name"] for item in riders_parameters}
+        self.assertIn("rider_tiers", rider_param_names)
+        self.assertIn("target_daily_completed_orders", rider_param_names)
+        self.assertIn("target_completed_days", rider_param_names)
 
     def test_fluctuation_endpoint_accepts_region_and_partner_filters(self):
         schema = self.app.openapi()

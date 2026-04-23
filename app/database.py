@@ -12,19 +12,24 @@ class Base(DeclarativeBase):
     pass
 
 
-def create_db_engine(settings: Settings):
+def create_db_engine(settings: Settings, *, read_only: bool = False):
     url = resolve_database_url(settings)
     kwargs = {"future": True}
+    connect_args = {}
     if url.startswith("sqlite"):
-        kwargs["connect_args"] = {"check_same_thread": False}
+        connect_args["check_same_thread"] = False
+    if url.startswith("duckdb") and read_only:
+        connect_args["read_only"] = True
     if url.startswith("mysql"):
         kwargs["pool_pre_ping"] = True
-        kwargs["connect_args"] = {"local_infile": 1}
+        connect_args["local_infile"] = 1
+    if connect_args:
+        kwargs["connect_args"] = connect_args
     return create_engine(url, **kwargs)
 
 
-def create_session_factory(settings: Settings):
-    engine = create_db_engine(settings)
+def create_session_factory(settings: Settings, *, read_only: bool = False):
+    engine = create_db_engine(settings, read_only=read_only)
     return engine, sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False, future=True)
 
 

@@ -22,34 +22,24 @@ export function renderTable(selector, columns, rows, options = {}) {
   let currentSortKey = host.dataset.sortKey || null;
   let currentSortDir = host.dataset.sortDir || "desc";
 
-  function doSort(key, dir) {
-    const col = columns.find((item) => item.key === key);
-    const sortType = col?.sortType || "auto";
-    sortedRows = [...rows].sort((a, b) => {
-      const av = a?.[key];
-      const bv = b?.[key];
-      if (av == null || av === "-") return 1;
-      if (bv == null || bv === "-") return -1;
-      if (sortType === "string") {
-        return dir === "asc"
-          ? String(av).localeCompare(String(bv), "zh-CN")
-          : String(bv).localeCompare(String(av), "zh-CN");
-      }
-      const an = Number(av);
-      const bn = Number(bv);
-      if (!Number.isNaN(an) && !Number.isNaN(bn)) {
-        return dir === "asc" ? an - bn : bn - an;
-      }
-      return dir === "asc"
-        ? String(av).localeCompare(String(bv), "zh-CN")
-        : String(bv).localeCompare(String(av), "zh-CN");
-    });
-    currentSortKey = key;
-    currentSortDir = dir;
-    host.dataset.sortKey = key;
-    host.dataset.sortDir = dir;
-    renderHead();
-    renderBody();
+  function withPinnedTop(sorted) {
+    const pinned = sorted.filter((row) => row?.__pinnedTop);
+    const normal = sorted.filter((row) => !row?.__pinnedTop);
+    return [...pinned, ...normal];
+  }
+
+  function renderCell(column, row, rowIndex) {
+    const rawValue = row?.[column.key];
+    let displayValue = rawValue;
+    if (column.render) displayValue = column.render(rawValue, row, rowIndex);
+    let content = escapeHtml(displayValue ?? "-");
+    if (column.href && rawValue != null) {
+      const url = typeof column.href === "function"
+        ? column.href(rawValue, row)
+        : column.href.replace("{value}", encodeURIComponent(rawValue));
+      content = `<a class="table-link" href="${url}">${content}</a>`;
+    }
+    return `<td class="${alignClass(column.align)}">${content}</td>`;
   }
 
   function renderHead() {
@@ -68,28 +58,47 @@ export function renderTable(selector, columns, rows, options = {}) {
   }
 
   function renderBody() {
+    let dataRowIndex = 0;
     const html = sortedRows
       .map((row) => {
-        const cells = columns
-          .map((column) => {
-            const rawValue = row?.[column.key];
-            let displayValue = rawValue;
-            if (column.render) displayValue = column.render(rawValue, row);
-            let content = escapeHtml(displayValue ?? "-");
-            if (column.href && rawValue != null) {
-              const url = typeof column.href === "function"
-                ? column.href(rawValue, row)
-                : column.href.replace("{value}", encodeURIComponent(rawValue));
-              content = `<a class="table-link" href="${url}">${content}</a>`;
-            }
-            return `<td class="${alignClass(column.align)}">${content}</td>`;
-          })
-          .join("");
+        const rowIndex = row?.__pinnedTop ? 0 : dataRowIndex++;
+        const cells = columns.map((column) => renderCell(column, row, rowIndex)).join("");
         return `<tr>${cells}</tr>`;
       })
       .join("");
     const body = host.querySelector("tbody");
     if (body) body.innerHTML = html;
+  }
+
+  function doSort(key, dir) {
+    const col = columns.find((item) => item.key === key);
+    const sortType = col?.sortType || "auto";
+    const normalRows = rows.filter((row) => !row?.__pinnedTop);
+    sortedRows = withPinnedTop(normalRows.sort((a, b) => {
+      const av = a?.[key];
+      const bv = b?.[key];
+      if (av == null || av === "-") return 1;
+      if (bv == null || bv === "-") return -1;
+      if (sortType === "string") {
+        return dir === "asc"
+          ? String(av).localeCompare(String(bv), "zh-CN")
+          : String(bv).localeCompare(String(av), "zh-CN");
+      }
+      const an = Number(av);
+      const bn = Number(bv);
+      if (!Number.isNaN(an) && !Number.isNaN(bn)) {
+        return dir === "asc" ? an - bn : bn - an;
+      }
+      return dir === "asc"
+        ? String(av).localeCompare(String(bv), "zh-CN")
+        : String(bv).localeCompare(String(av), "zh-CN");
+    }));
+    currentSortKey = key;
+    currentSortDir = dir;
+    host.dataset.sortKey = key;
+    host.dataset.sortDir = dir;
+    renderHead();
+    renderBody();
   }
 
   const headHtml = columns
@@ -103,23 +112,13 @@ export function renderTable(selector, columns, rows, options = {}) {
     })
     .join("");
 
+  sortedRows = withPinnedTop(sortedRows);
+
+  let initialDataRowIndex = 0;
   const bodyHtml = sortedRows
     .map((row) => {
-      const cells = columns
-        .map((column) => {
-          const rawValue = row?.[column.key];
-          let displayValue = rawValue;
-          if (column.render) displayValue = column.render(rawValue, row);
-          let content = escapeHtml(displayValue ?? "-");
-          if (column.href && rawValue != null) {
-            const url = typeof column.href === "function"
-              ? column.href(rawValue, row)
-              : column.href.replace("{value}", encodeURIComponent(rawValue));
-            content = `<a class="table-link" href="${url}">${content}</a>`;
-          }
-          return `<td class="${alignClass(column.align)}">${content}</td>`;
-        })
-        .join("");
+      const rowIndex = row?.__pinnedTop ? 0 : initialDataRowIndex++;
+      const cells = columns.map((column) => renderCell(column, row, rowIndex)).join("");
       return `<tr>${cells}</tr>`;
     })
     .join("");

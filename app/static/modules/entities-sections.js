@@ -23,6 +23,29 @@ function yesNo(value) {
   return Number(value || 0) === 1 ? "是" : "否";
 }
 
+function yesNoOrDash(value, row) {
+  if (row?.__is_total) return "-";
+  return yesNo(value);
+}
+
+function totalAwareNumber(value, row) {
+  return formatNumber(value || 0);
+}
+
+function targetStatus(value, row) {
+  if (row?.__is_total) {
+    return formatNumber(value || 0);
+  }
+  return Number(value || 0) === 1 ? "1" : "0";
+}
+
+function formatMonthDay(dateText) {
+  if (!dateText) return "-";
+  const match = String(dateText).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return String(dateText);
+  return `${Number(match[2])}月${Number(match[3])}日`;
+}
+
 export function renderEntitiesSummary(overview) {
   const summary = overview.summary || {};
   renderTags("#entitiesConclusion", [
@@ -93,20 +116,41 @@ export function renderCommission(rows) {
   );
 }
 
-export function renderRiderRoster(rows) {
+export function renderRiderRoster(rows, dateColumns = []) {
+  const dynamicDateColumns = (dateColumns || []).map((dateText) => ({
+    key: dateText,
+    label: formatMonthDay(dateText),
+    sortable: false,
+    align: "right",
+    render: (_value, row) => formatNumber(row?.daily_completed_orders?.[dateText] || 0),
+  }));
+
   renderTable(
     "#entitiesRiderRosterTable",
     [
+      { key: "__index", label: "序号", align: "center", render: (_value, row, rowIndex) => (row?.__is_total ? "总计" : String(rowIndex + 1)) },
       { key: "rider_id", label: "骑手 ID", sortable: true, sortType: "string" },
       { key: "rider_name", label: "骑手姓名", sortable: true },
-      { key: "hire_date", label: "入职时间", sortable: true },
-      { key: "total_orders", label: "总订单", sortable: true, render: formatNumber, align: "right" },
-      { key: "completed_orders", label: "完成订单", sortable: true, render: formatNumber, align: "right" },
-      { key: "cancelled_orders", label: "取消订单", sortable: true, render: formatNumber, align: "right" },
-      { key: "is_new_rider", label: "是否新骑手", render: yesNo, align: "center" },
+      { key: "hire_date", label: "注册时间", sortable: true },
+      { key: "is_new_rider", label: "是否新骑手", render: yesNoOrDash, align: "center" },
+      { key: "completed_orders", label: "完成总订单", sortable: true, render: totalAwareNumber, align: "right" },
+      { key: "is_target_met", label: "是否达标", sortable: true, render: targetStatus, align: "center" },
+      ...dynamicDateColumns,
     ],
     rows || [],
     { emptyText: "当前筛选范围暂无骑手名单" },
+  );
+}
+
+export function renderRiderTierTable(rows) {
+  renderTable(
+    "#entitiesRiderTierTable",
+    [
+      { key: "label", label: "层级" },
+      { key: "rider_count", label: "骑手人数", render: formatNumber, align: "right" },
+    ],
+    rows || [],
+    { emptyText: "当前筛选范围暂无骑手分层数据" },
   );
 }
 

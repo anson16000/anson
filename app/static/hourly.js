@@ -8,6 +8,7 @@ import {
   renderFilterSummary,
   renderSystemMeta,
   requireElement,
+  saveFilters,
   setDateRange,
   setHtml,
   showError,
@@ -20,6 +21,22 @@ import {
 const PAGE_KEY = "hourly";
 const savedFilters = loadFilters(PAGE_KEY);
 
+function exposeValidCancelThreshold() {
+  const input = requireElement("#hourlyValidCancelThreshold");
+  const field = input.closest(".field");
+  const grid = document.querySelector(".toolbar-grid");
+  if (field && grid && field.parentElement !== grid) {
+    grid.appendChild(field);
+  }
+  const more = requireElement("#hourlyFilterMore");
+  const toggle = requireElement("#hourlyFilterToggle");
+  if (more && toggle && more.querySelectorAll(".field").length === 0) {
+    more.classList.remove("show");
+    more.style.display = "none";
+    toggle.style.display = "none";
+  }
+}
+
 // Check for cross-page shared partner_id, city, dates or URL params
 const sharedData = loadFilters("");
 const urlPartnerId = new URLSearchParams(window.location.search).get("partner_id") || "";
@@ -31,6 +48,9 @@ if (urlStartDate) savedFilters.start_date = urlStartDate;
 else if (sharedData._shared_start_date) savedFilters.start_date = sharedData._shared_start_date;
 if (urlEndDate) savedFilters.end_date = urlEndDate;
 else if (sharedData._shared_end_date) savedFilters.end_date = sharedData._shared_end_date;
+if (sharedData._shared_valid_cancel_threshold_minutes) {
+  savedFilters.valid_cancel_threshold_minutes = sharedData._shared_valid_cancel_threshold_minutes;
+}
 if (!urlPartnerId && !urlStartDate && !urlEndDate) {
   try {
     const data = JSON.parse(sessionStorage.getItem("dashboard_filters") || "{}");
@@ -69,6 +89,7 @@ const controller = createPageController({
     setHtml("#hourlyCancelRateHeatmap", '<div class="empty empty-inline">请选择合伙人后查看取消率热力图</div>');
   },
   populateFilters: async (meta, state) => {
+    exposeValidCancelThreshold();
     renderSystemMeta(meta, { prefix: "hourly" });
     const latestDate = meta.system.latest_data_date;
     setDateRange("#hourlyStartDate", "#hourlyEndDate", latestDate);
@@ -113,6 +134,7 @@ const controller = createPageController({
     });
   },
   onSaveFilters: (filters) => {
+    saveFilters(filters, PAGE_KEY);
     const labelMap = {
       partner_id: "合伙人",
       valid_cancel_threshold_minutes: "有效取消阈值",
@@ -124,6 +146,7 @@ const controller = createPageController({
       if (filters.partner_id) data._shared_partner_id = filters.partner_id;
       if (filters.start_date) data._shared_start_date = filters.start_date;
       if (filters.end_date) data._shared_end_date = filters.end_date;
+      if (filters.valid_cancel_threshold_minutes) data._shared_valid_cancel_threshold_minutes = filters.valid_cancel_threshold_minutes;
       sessionStorage.setItem("dashboard_filters", JSON.stringify(data));
     } catch (_) {}
   },

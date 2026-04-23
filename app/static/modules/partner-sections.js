@@ -48,6 +48,8 @@ export function renderPartnerSummary(overview) {
     { label: "新商家数", value: formatNumber(summary.new_merchants) },
     { label: "总部补贴", value: formatMoney(summary.hq_subsidy_total) },
     { label: "合伙人补贴", value: formatMoney(summary.partner_subsidy_total) },
+    { label: "实际收款总", value: formatMoney(summary.actual_received_total) },
+    { label: "订单均价", value: formatMoney(summary.avg_ticket_price) },
   ]);
 }
 
