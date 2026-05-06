@@ -60,6 +60,8 @@ export function renderHourlyCharts(hourly) {
   const summary = hourly.hourly_summary || [];
   renderLineChart("#hourlyAcceptedChart", summary.map((item) => `${item.hour}`), [
     { name: "接单骑手数", values: summary.map((item) => item.accepted_rider_count) },
+    { name: "全职接单骑手数", values: summary.map((item) => item.fulltime_accepted_rider_count) },
+    { name: "兼职接单骑手数", values: summary.map((item) => item.parttime_accepted_rider_count) },
     { name: "总订单", values: summary.map((item) => item.total_orders) },
     { name: "取消率", values: summary.map((item) => item.cancel_rate) },
   ]);
@@ -71,7 +73,11 @@ export function renderHourlyCharts(hourly) {
       { key: "completed_orders", label: "完成订单", render: formatNumber, align: "right" },
       { key: "cancelled_orders", label: "取消订单", render: formatNumber, align: "right" },
       { key: "accepted_rider_count", label: "接单骑手数", render: formatNumber, align: "right" },
+      { key: "fulltime_accepted_rider_count", label: "全职接单骑手数", render: formatNumber, align: "right" },
+      { key: "parttime_accepted_rider_count", label: "兼职接单骑手数", render: formatNumber, align: "right" },
       { key: "efficiency", label: "人效", render: formatDecimal, align: "right" },
+      { key: "fulltime_efficiency", label: "全职人效", render: formatDecimal, align: "right" },
+      { key: "parttime_efficiency", label: "兼职人效", render: formatDecimal, align: "right" },
       { key: "completion_rate", label: "完成率", render: formatPercent, align: "right" },
       { key: "cancel_rate", label: "取消率", render: formatPercent, align: "right" },
     ],

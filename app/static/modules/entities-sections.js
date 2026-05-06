@@ -93,6 +93,7 @@ export function renderMerchantIdentity(rows) {
   renderTable(
     "#merchantLikeUsersTable",
     [
+      { key: "__index", label: "序号", align: "center", render: (_value, _row, rowIndex) => String(rowIndex + 1) },
       { key: "user_id", label: "用户 ID", sortType: "string" },
       { key: "completed_orders", label: "完成订单", sortable: true, render: formatNumber, align: "right" },
     ],
@@ -158,6 +159,7 @@ export function renderMerchantRoster(rows) {
   renderTable(
     "#entitiesMerchantRosterTable",
     [
+      { key: "__index", label: "序号", align: "center", render: (_value, _row, rowIndex) => String(rowIndex + 1) },
       { key: "merchant_id", label: "商家 ID", sortable: true, sortType: "string" },
       { key: "merchant_name", label: "商户名称", sortable: true },
       { key: "register_date", label: "注册时间", sortable: true },

@@ -121,6 +121,10 @@ def _build_hourly_metrics(
             "cancelled_orders": 0,
             "valid_orders": 0,
             "accepted_riders": set(),
+            "parttime_accepted_riders": set(),
+            "fulltime_accepted_riders": set(),
+            "parttime_completed_orders": 0,
+            "fulltime_completed_orders": 0,
         }
     )
 
@@ -154,6 +158,11 @@ def _build_hourly_metrics(
             bucket["total_orders"] += 1
             if row.is_completed:
                 bucket["completed_orders"] += 1
+                employment_type = getattr(row, "employment_type", None)
+                if employment_type == "parttime":
+                    bucket["parttime_completed_orders"] += 1
+                elif employment_type == "fulltime":
+                    bucket["fulltime_completed_orders"] += 1
             if row.is_cancelled:
                 bucket["cancelled_orders"] += 1
             is_valid_cancel = bool(row.is_cancelled and row.is_paid and (row.pay_cancel_minutes or 0) > threshold)
@@ -162,10 +171,28 @@ def _build_hourly_metrics(
 
         accepted_key = accept_bucket_key(row)
         if accepted_key is not None:
-            per_bucket[accepted_key]["accepted_riders"].add(row.rider_id)
+            accept_bucket = per_bucket[accepted_key]
+            accept_bucket["accepted_riders"].add(row.rider_id)
+            employment_type = getattr(row, "employment_type", None)
+            if employment_type == "parttime":
+                accept_bucket["parttime_accepted_riders"].add(row.rider_id)
+            elif employment_type == "fulltime":
+                accept_bucket["fulltime_accepted_riders"].add(row.rider_id)
 
     items: list[dict[str, Any]] = []
-    by_hour = defaultdict(lambda: {"total_orders": 0, "completed_orders": 0, "cancelled_orders": 0, "valid_orders": 0, "accepted_rider_count": 0})
+    by_hour = defaultdict(
+        lambda: {
+            "total_orders": 0,
+            "completed_orders": 0,
+            "cancelled_orders": 0,
+            "valid_orders": 0,
+            "accepted_rider_count": 0,
+            "parttime_accepted_rider_count": 0,
+            "fulltime_accepted_rider_count": 0,
+            "parttime_completed_orders": 0,
+            "fulltime_completed_orders": 0,
+        }
+    )
 
     def sort_key(key: Any):
         if include_date:
@@ -175,10 +202,14 @@ def _build_hourly_metrics(
     for bucket_key in sorted(per_bucket.keys(), key=sort_key):
         bucket = per_bucket[bucket_key]
         accepted_rider_count = len(bucket["accepted_riders"])
+        parttime_accepted_rider_count = len(bucket["parttime_accepted_riders"])
+        fulltime_accepted_rider_count = len(bucket["fulltime_accepted_riders"])
         total_orders = int(bucket["total_orders"])
         completed_orders = int(bucket["completed_orders"])
         cancelled_orders = int(bucket["cancelled_orders"])
         valid_orders = int(bucket["valid_orders"])
+        parttime_completed_orders = int(bucket["parttime_completed_orders"])
+        fulltime_completed_orders = int(bucket["fulltime_completed_orders"])
         if include_date:
             date_text, hour = bucket_key
         else:
@@ -196,6 +227,12 @@ def _build_hourly_metrics(
             "cancel_rate": safe_ratio(cancelled_orders, total_orders),
             "accepted_rider_count": accepted_rider_count,
             "efficiency": _calc_efficiency(completed_orders, accepted_rider_count),
+            "parttime_accepted_rider_count": parttime_accepted_rider_count,
+            "fulltime_accepted_rider_count": fulltime_accepted_rider_count,
+            "parttime_completed_orders": parttime_completed_orders,
+            "fulltime_completed_orders": fulltime_completed_orders,
+            "parttime_efficiency": _calc_efficiency(parttime_completed_orders, parttime_accepted_rider_count),
+            "fulltime_efficiency": _calc_efficiency(fulltime_completed_orders, fulltime_accepted_rider_count),
         }
         if include_date:
             item["date"] = date_text
@@ -207,6 +244,10 @@ def _build_hourly_metrics(
         summary_bucket["cancelled_orders"] += cancelled_orders
         summary_bucket["valid_orders"] += valid_orders
         summary_bucket["accepted_rider_count"] += accepted_rider_count
+        summary_bucket["parttime_accepted_rider_count"] += parttime_accepted_rider_count
+        summary_bucket["fulltime_accepted_rider_count"] += fulltime_accepted_rider_count
+        summary_bucket["parttime_completed_orders"] += parttime_completed_orders
+        summary_bucket["fulltime_completed_orders"] += fulltime_completed_orders
 
     hourly_summary = [
         {
@@ -221,6 +262,12 @@ def _build_hourly_metrics(
             "cancel_rate": safe_ratio(values["cancelled_orders"], values["total_orders"]),
             "accepted_rider_count": int(values["accepted_rider_count"]),
             "efficiency": _calc_efficiency(values["completed_orders"], values["accepted_rider_count"]),
+            "parttime_accepted_rider_count": int(values["parttime_accepted_rider_count"]),
+            "fulltime_accepted_rider_count": int(values["fulltime_accepted_rider_count"]),
+            "parttime_completed_orders": int(values["parttime_completed_orders"]),
+            "fulltime_completed_orders": int(values["fulltime_completed_orders"]),
+            "parttime_efficiency": _calc_efficiency(values["parttime_completed_orders"], values["parttime_accepted_rider_count"]),
+            "fulltime_efficiency": _calc_efficiency(values["fulltime_completed_orders"], values["fulltime_accepted_rider_count"]),
         }
         for hour, values in sorted(by_hour.items())
     ]

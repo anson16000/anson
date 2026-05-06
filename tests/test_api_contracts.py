@@ -1,12 +1,13 @@
 import unittest
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from app.api import _calc_partner_recent_daily, create_app
+from app.api import _build_hourly_metrics, _calc_partner_recent_daily, create_app
 from app.api_support import validate_query_window
 from main import build_parser
 
@@ -72,6 +73,43 @@ class ApiContractsTestCase(unittest.TestCase):
     def test_partner_recent_daily_returns_empty_for_non_all_ranking(self):
         self.assertEqual(_calc_partner_recent_daily(object(), "province"), [])
         self.assertEqual(_calc_partner_recent_daily(object(), "city"), [])
+
+    def test_partner_hourly_metrics_split_rider_type_counts_and_efficiency(self):
+        def row(rider_id, employment_type):
+            return SimpleNamespace(
+                order_date=date(2026, 3, 1),
+                order_hour=10,
+                accept_time=datetime(2026, 3, 1, 10, 15),
+                accept_hour=10,
+                rider_id=rider_id,
+                is_completed=True,
+                is_cancelled=False,
+                is_paid=True,
+                pay_cancel_minutes=None,
+                employment_type=employment_type,
+            )
+
+        rows = [
+            row("F001", "fulltime"),
+            row("P001", "parttime"),
+            row("P001", "parttime"),
+            row("U001", None),
+        ]
+
+        items, hourly_summary = _build_hourly_metrics(rows, threshold=5, include_date=True)
+
+        self.assertEqual(items[0]["accepted_rider_count"], 3)
+        self.assertEqual(items[0]["fulltime_accepted_rider_count"], 1)
+        self.assertEqual(items[0]["parttime_accepted_rider_count"], 1)
+        self.assertEqual(items[0]["fulltime_completed_orders"], 1)
+        self.assertEqual(items[0]["parttime_completed_orders"], 2)
+        self.assertEqual(items[0]["fulltime_efficiency"], 1.0)
+        self.assertEqual(items[0]["parttime_efficiency"], 2.0)
+        self.assertEqual(hourly_summary[0]["accepted_rider_count"], 3)
+        self.assertGreaterEqual(
+            hourly_summary[0]["accepted_rider_count"],
+            hourly_summary[0]["fulltime_accepted_rider_count"] + hourly_summary[0]["parttime_accepted_rider_count"],
+        )
 
     def test_partner_recent_daily_returns_rows_for_all_ranking(self):
         fake_rows = [

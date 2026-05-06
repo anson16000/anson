@@ -15,7 +15,7 @@ export function renderLineChart(selector, labels, series, options = {}) {
   const allValues = series.flatMap((item) => item.values.map((value) => Number(value || 0)));
   const maxValue = Math.max(...allValues, 1);
   const stepX = labels.length > 1 ? chartWidth / (labels.length - 1) : chartWidth;
-  const colors = ["#217346", "#5b708b", "#c88425", "#c75146"];
+  const colors = ["#217346", "#5b708b", "#c88425", "#c75146", "#2c7be5", "#7a5cbe"];
 
   const linePath = (values) => values
     .map((value, index) => {
