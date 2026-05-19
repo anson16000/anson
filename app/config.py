@@ -36,6 +36,7 @@ class BusinessConfig(BaseModel):
     new_merchant_window_days: int = 30
     new_partner_window_days: int = 90
     merchant_like_user_threshold_orders: int = 20
+    excluded_partner_ids: list[str] = Field(default_factory=lambda: ["101"])
 
 
 class AlertConfig(BaseModel):

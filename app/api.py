@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
@@ -113,7 +113,12 @@ def _build_hourly_metrics(
     rows: list[Any],
     threshold: int,
     include_date: bool = True,
+    time_bucket: str = "order",
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    time_bucket = (time_bucket or "order").lower()
+    if time_bucket not in {"order", "accept"}:
+        time_bucket = "order"
+
     per_bucket = defaultdict(
         lambda: {
             "total_orders": 0,
@@ -136,7 +141,7 @@ def _build_hourly_metrics(
         return int(row.order_hour)
 
     def accept_bucket_key(row: Any):
-        if row.accept_hour is None or not row.rider_id:
+        if row.accept_hour is None:
             return None
         accept_date = None
         if row.accept_time:
@@ -144,6 +149,8 @@ def _build_hourly_metrics(
                 accept_date = row.accept_time.date()
             elif isinstance(row.accept_time, date):
                 accept_date = row.accept_time
+        if time_bucket == "accept" and not accept_date:
+            return None
         accept_date_text = _to_iso_date(accept_date or row.order_date)
         if include_date:
             if not accept_date_text:
@@ -152,6 +159,33 @@ def _build_hourly_metrics(
         return int(row.accept_hour)
 
     for row in rows:
+        if time_bucket == "accept":
+            bucket_key = accept_bucket_key(row)
+            if bucket_key is None:
+                continue
+            bucket = per_bucket[bucket_key]
+            bucket["total_orders"] += 1
+            if row.rider_id:
+                bucket["accepted_riders"].add(row.rider_id)
+                employment_type = getattr(row, "employment_type", None)
+                if employment_type == "parttime":
+                    bucket["parttime_accepted_riders"].add(row.rider_id)
+                elif employment_type == "fulltime":
+                    bucket["fulltime_accepted_riders"].add(row.rider_id)
+            if row.is_completed:
+                bucket["completed_orders"] += 1
+                employment_type = getattr(row, "employment_type", None)
+                if employment_type == "parttime":
+                    bucket["parttime_completed_orders"] += 1
+                elif employment_type == "fulltime":
+                    bucket["fulltime_completed_orders"] += 1
+            if row.is_cancelled:
+                bucket["cancelled_orders"] += 1
+            is_valid_cancel = bool(row.is_cancelled and row.is_paid and (row.pay_cancel_minutes or 0) > threshold)
+            if row.is_completed or is_valid_cancel:
+                bucket["valid_orders"] += 1
+            continue
+
         bucket_key = order_bucket_key(row)
         if bucket_key is not None:
             bucket = per_bucket[bucket_key]
@@ -172,12 +206,13 @@ def _build_hourly_metrics(
         accepted_key = accept_bucket_key(row)
         if accepted_key is not None:
             accept_bucket = per_bucket[accepted_key]
-            accept_bucket["accepted_riders"].add(row.rider_id)
-            employment_type = getattr(row, "employment_type", None)
-            if employment_type == "parttime":
-                accept_bucket["parttime_accepted_riders"].add(row.rider_id)
-            elif employment_type == "fulltime":
-                accept_bucket["fulltime_accepted_riders"].add(row.rider_id)
+            if row.rider_id:
+                accept_bucket["accepted_riders"].add(row.rider_id)
+                employment_type = getattr(row, "employment_type", None)
+                if employment_type == "parttime":
+                    accept_bucket["parttime_accepted_riders"].add(row.rider_id)
+                elif employment_type == "fulltime":
+                    accept_bucket["fulltime_accepted_riders"].add(row.rider_id)
 
     items: list[dict[str, Any]] = []
     by_hour = defaultdict(
@@ -1605,16 +1640,32 @@ def create_app() -> FastAPI:
         start_date: date | None = None,
         end_date: date | None = None,
         valid_cancel_threshold_minutes: int | None = Query(default=None),
+        time_bucket: str = Query(default="order"),
     ):
         _validate_query_window(start_date, end_date)
+        time_bucket = (time_bucket or "order").lower()
+        if time_bucket not in {"order", "accept"}:
+            raise HTTPException(status_code=400, detail="time_bucket must be order or accept")
         threshold = valid_cancel_threshold_minutes or settings.business.valid_order_cancel_threshold_minutes
         with session_scope(session_factory) as session:
             info = get_latest_import_info(session)
             sla_minutes = _get_partner_sla_minutes(session, partner_id)
             stmt = select(DwdOrderDetail)
-            stmt = _apply_dwd_filters(stmt, start_date, end_date, partner_id=partner_id)
+            if time_bucket == "accept":
+                stmt = stmt.where(DwdOrderDetail.partner_id == partner_id)
+                if start_date:
+                    stmt = stmt.where(DwdOrderDetail.accept_time >= datetime.combine(start_date, time.min))
+                if end_date:
+                    stmt = stmt.where(DwdOrderDetail.accept_time < datetime.combine(end_date + timedelta(days=1), time.min))
+            else:
+                stmt = _apply_dwd_filters(stmt, start_date, end_date, partner_id=partner_id)
             rows = list(session.scalars(stmt))
-        items, hourly_summary = _build_hourly_metrics(rows, threshold=threshold, include_date=True)
+        items, hourly_summary = _build_hourly_metrics(
+            rows,
+            threshold=threshold,
+            include_date=True,
+            time_bucket=time_bucket,
+        )
         for item in items:
             item["sla_minutes"] = sla_minutes
         for item in hourly_summary:
@@ -1628,6 +1679,7 @@ def create_app() -> FastAPI:
                 "applied_thresholds": {
                     "valid_cancel_threshold_minutes": threshold,
                     "sla_minutes": sla_minutes,
+                    "time_bucket": time_bucket,
                 },
             }
         )

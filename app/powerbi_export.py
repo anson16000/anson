@@ -10,11 +10,12 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
+from app.business_rules import DEFAULT_EXCLUDED_PARTNER_IDS, sql_literal
 from app.config import Settings, resolve_path
 from app.database import create_session_factory, session_scope
 
 
-EXCLUDED_PARTNER_IDS = ("101",)
+EXCLUDED_PARTNER_IDS = DEFAULT_EXCLUDED_PARTNER_IDS
 
 
 @dataclass
@@ -27,7 +28,7 @@ class PowerBiExportResult:
 
 
 def _sql_literal(value: str) -> str:
-    return "'" + value.replace("'", "''") + "'"
+    return sql_literal(value)
 
 
 def _copy_query_to_parquet_sql(query: str, target: Path) -> str:

@@ -75,10 +75,15 @@ export function renderWorkforceHeatmaps(hourly, targets = DEFAULT_TARGETS) {
 }
 
 export function renderWorkforceTable(hourly, targets = DEFAULT_TARGETS) {
+  const rows = (hourly.items || []).map((item) => ({
+    ...item,
+    date_hour: `${item.date || "-"} ${String(item.hour ?? "").padStart(2, "0")}:00`,
+  }));
+
   renderTable(
     targets.hourlyTable,
     [
-      { key: "hour", label: "小时" },
+      { key: "date_hour", label: "日期 / 小时" },
       { key: "completed_orders", label: "完成订单", render: formatNumber, align: "right" },
       { key: "accepted_rider_count", label: "总接单骑手数", render: formatNumber, align: "right" },
       { key: "fulltime_accepted_rider_count", label: "全职接单骑手数", render: formatNumber, align: "right" },
@@ -89,8 +94,8 @@ export function renderWorkforceTable(hourly, targets = DEFAULT_TARGETS) {
       { key: "fulltime_completed_orders", label: "全职完成订单", render: formatNumber, align: "right" },
       { key: "parttime_completed_orders", label: "兼职完成订单", render: formatNumber, align: "right" },
     ],
-    hourly.hourly_summary || [],
-    { emptyText: "当前筛选范围暂无全职兼职小时数据" },
+    rows,
+    { emptyText: "当前筛选范围暂无全职兼职日期小时明细数据" },
   );
 }
 

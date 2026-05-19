@@ -1,6 +1,7 @@
 import unittest
 
 from app.pipeline import ORDER_FIELD_MAP, _canonical_row, _should_skip_success_registry
+from app.services.import_runtime import build_import_message
 
 
 class PipelineModesTestCase(unittest.TestCase):
@@ -29,6 +30,20 @@ class PipelineModesTestCase(unittest.TestCase):
         mapped = _canonical_row(row, ORDER_FIELD_MAP)
 
         self.assertIsNone(mapped["order_id"])
+
+    def test_powerbi_export_failure_does_not_flip_import_to_failed(self):
+        status, message = build_import_message(
+            status="success",
+            mode="auto",
+            processed_files=1,
+            skipped_files=0,
+            touched_months={"2026-03"},
+            error_files=0,
+            current_message="导入完成；Power BI Parquet 导出失败：目录被占用",
+        )
+
+        self.assertEqual(status, "success")
+        self.assertIn("Power BI Parquet 导出失败", message)
 
 
 if __name__ == "__main__":
