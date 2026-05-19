@@ -1,97 +1,128 @@
-﻿# 鍚屽煄閰嶉€佺粡钀ュ垎鏋愮郴缁?
-鍩轰簬 `Python + FastAPI + DuckDB + Power BI/缃戦〉鐪嬫澘` 鐨勬湰鍦伴厤閫佺粡钀ュ垎鏋愮郴缁熴€?
-褰撳墠鏁版嵁閾捐矾锛?
+# 同城配送经营分析系统
+
+基于 `Python + FastAPI + DuckDB + Power BI/网页看板` 的本地配送经营分析系统。
+
+当前数据链路：
+
 ```text
-鍘熷璁㈠崟/鍚嶅崟鏂囦欢
--> Python 瀵煎叆
+原始订单/名单文件
+-> Python 导入
 -> DuckDB ODS/DWD/ADS
--> 缃戦〉鐪嬫澘
--> Power BI Parquet 鎴愬搧灞?```
+-> 网页看板
+-> Power BI Parquet 成品层
+```
 
-## 椤甸潰鍏ュ彛
+## 页面入口
 
-| 椤甸潰 | 璺敱 | 璇存槑 |
+| 页面 | 路由 | 说明 |
 | --- | --- | --- |
-| 鍏ㄥ浗鎬昏 | `/` | 鍏ㄥ浗绾х粡钀ユ瑙堛€佽秼鍔裤€佹帓鍚嶅拰鍒嗗眰 |
-| 鍩庡競缁忚惀 | `/partner` | 鍗曞煄甯傜粡钀ユ憳瑕併€佹敹鐩婂拰鐩磋惀涓撻」鍏ュ彛 |
-| 鏃舵鐑姏涓庡饱绾?| `/partner/hourly` | 灏忔椂杩愬姏銆佺儹鍔涖€佸饱绾︿笌 SLA |
-| 涓讳綋鍒嗘瀽 | `/partner/entities` | 鍟嗘埛銆侀獞鎵嬨€佷富浣撹瘑鍒笌鍚嶅崟鏄庣粏 |
-| 璇婃柇棰勮 | `/alerts` | 椋庨櫓銆佸叧娉ㄣ€佸仴搴峰害涓庢尝鍔ㄩ璀?|
+| 全国总览 | `/` | 全国级经营概览、趋势、排名和分层 |
+| 城市经营 | `/partner` | 单城市经营摘要、收益和直营专项入口 |
+| 时段热力与履约 | `/partner/hourly` | 小时运力、热力、履约与 SLA |
+| 主体分析 | `/partner/entities` | 商户、骑手、订单来源、主体识别与名单明细 |
+| 诊断预警 | `/alerts` | 风险、关注、健康度与波动预警 |
 
-鍏煎鍏ュ彛锛?
-- `/direct` 浼氳烦杞埌 `/partner?section=direct`
+兼容入口：
 
-## Windows 棣栨閮ㄧ讲
+- `/direct` 会跳转到 `/partner?section=direct`
 
-褰撳墠椤圭洰涓昏鏀寔 Windows 鏈湴浣跨敤銆?
-1. 澶嶅埗鏁翠釜椤圭洰鐩綍鍒版柊鐢佃剳銆?2. 鍙屽嚮杩愯 `00-鍒濆鍖栫幆澧?bat`銆?3. 鍒濆鍖栨垚鍔熷悗锛屽弻鍑?`02-涓€閿惎鍔ㄧ湅鏉?bat`銆?4. 濡傞渶瀵煎叆鏁版嵁锛岃繍琛?`01-涓€閿鍏ユ暟鎹?bat`銆?5. 濡備唬鐮侀€昏緫淇繃浣嗗師濮嬫枃浠舵病鍙橈紝杩愯 `01-涓€閿己鍒堕噸寤?bat`銆?
-鍒濆鍖栬剼鏈細鑷姩锛?
-- 妫€鏌?Python 3.12銆?- 鍒涘缓 `.venv`銆?- 瀹夎 `requirements.txt`銆?- 妫€鏌ョ洰褰曘€侀厤缃拰绔彛銆?
-## 甯哥敤鍛戒护
+## Windows 首次部署
+
+当前项目主要支持 Windows 本地使用。
+
+1. 复制整个项目目录到新电脑。
+2. 双击运行 `00-初始化环境.bat`。
+3. 初始化成功后，双击 `02-一键启动看板.bat`。
+4. 如需导入数据，运行 `01-一键导入数据.bat`。
+5. 如果代码逻辑修过但原始文件没变，运行 `01-一键强制重建.bat`。
+
+初始化脚本会自动：
+
+- 检查 Python 3.12。
+- 创建 `.venv`。
+- 安装 `requirements.txt`。
+- 检查目录、配置和端口。
+
+## 常用命令
 
 ```powershell
-# 鏅€氬鍏ワ紝鏂囦欢鏈彉鍖栨椂浼氳烦杩?python main.py import --mode=auto
+# 普通导入，文件未变化时会跳过
+python main.py import --mode=auto
 
-# 寮哄埗閲嶅缓锛屽拷鐣ユ枃浠跺幓閲?python main.py import --mode=force
+# 强制重建，忽略文件去重并重建当前文件对应月份
+python main.py import --mode=force
 
-# 鍙鍑?Power BI Parquet 鎴愬搧灞?python main.py export-powerbi
+# 只导出 Power BI Parquet 成品层
+python main.py export-powerbi
 
-# 鍚姩缃戦〉鐪嬫澘
+# 启动网页看板
 python main.py server --port 8090
 
-# 杩愯娴嬭瘯
+# 运行测试
 python -m unittest discover -s tests -p "test*.py"
 ```
 
-## 甯哥敤鎵瑰鐞嗚剼鏈?
-| 鑴氭湰 | 浣滅敤 |
-| --- | --- |
-| `00-鍒濆鍖栫幆澧?bat` | 棣栨閮ㄧ讲銆佺幆澧冩鏌ヤ笌鑷姩瀹夎 |
-| `01-涓€閿鍏ユ暟鎹?bat` | 鏅€氬鍏ユ暟鎹?|
-| `01-涓€閿己鍒堕噸寤?bat` | 寮哄埗閲嶅缓褰撳墠鏂囦欢瀵瑰簲鏈堜唤 |
-| `02-涓€閿惎鍔ㄧ湅鏉?bat` | 鍚姩鏈湴缃戦〉鐪嬫澘 |
-| `03-杩愯娴嬭瘯.bat` | 杩愯鑷姩鍖栨祴璇?|
-| `04-瀵煎嚭PowerBI-Parquet.bat` | 鎵嬪姩瀵煎嚭 Power BI Parquet 鎴愬搧灞?|
+## 常用批处理脚本
 
-## Power BI Parquet 鎴愬搧灞?
-瀵煎叆鎴愬姛鍚庝細鑷姩瀵煎嚭锛?
+| 脚本 | 作用 |
+| --- | --- |
+| `00-初始化环境.bat` | 首次部署、环境检查与自动安装 |
+| `01-一键导入数据.bat` | 普通导入数据 |
+| `01-一键强制重建.bat` | 强制重建当前文件对应月份 |
+| `02-一键启动看板.bat` | 启动本地网页看板 |
+| `03-运行测试.bat` | 运行自动化测试 |
+| `04-导出PowerBI-Parquet.bat` | 手动导出 Power BI Parquet 成品层 |
+
+## Power BI Parquet 成品层
+
+导入成功后会自动导出：
+
 ```text
 exports/powerbi_parquet/
 ```
 
-Power BI 寤鸿璇诲彇杩欎簺 Parquet 鏂囦欢锛岃€屼笉鏄洿鎺ヨ繛鎺?DuckDB 鏁版嵁搴撴枃浠躲€?
-杩欐牱鍙互鍑忓皯锛?
-- DuckDB 鏂囦欢閿併€?- ODBC 椹卞姩闂銆?- Power BI 鍒锋柊鍗犵敤鏁版嵁搴撱€?- 澶氱數鑴戣矾寰勪笉涓€鑷淬€?
-鎵嬪姩瀵煎嚭锛?
+Power BI 建议读取这些 Parquet 文件，而不是直接连接 DuckDB 数据库文件。这样可以减少：
+
+- DuckDB 文件锁。
+- ODBC 驱动问题。
+- Power BI 刷新占用数据库。
+- 多电脑路径不一致。
+
+手动导出：
+
 ```powershell
 python main.py export-powerbi
 ```
 
-鎴栧弻鍑伙細
+或双击：
 
 ```text
-04-瀵煎嚭PowerBI-Parquet.bat
+04-导出PowerBI-Parquet.bat
 ```
 
-璇︾粏璇存槑瑙侊細
+详细说明见：
 
-- `docs/Python+DuckDB+Parquet+PowerBI閲嶆瀯鏂规.md`
+- `docs/Python+DuckDB+Parquet+PowerBI重构方案.md`
 
-## 鏁版嵁鐩綍
+## 数据目录
 
 ```text
 data/
-鈹溾攢 orders_raw/      # 鍘熷璁㈠崟鏁版嵁
-鈹溾攢 orders_stage/    # 璁㈠崟棰勫鐞嗗悗鐨?stage 鏂囦欢
-鈹溾攢 orders/          # 鍏煎鏃х洰褰?鈹溾攢 riders/          # 楠戞墜/甯墜鍚嶅崟
-鈹溾攢 merchants/       # 鍟嗗/鍟嗘埛鍚嶅崟
-鈹斺攢 partners/        # 鍚堜紮浜哄悕鍗?```
+├── orders_raw/      # 原始订单数据
+├── orders_stage/    # 订单预处理后的 stage 文件
+├── orders/          # 兼容旧目录
+├── riders/          # 骑手/帮手名单
+├── merchants/       # 商家/商户名单
+└── partners/        # 合伙人名单
+```
 
-棣栨閮ㄧ讲鏃?`data/` 鍙互涓虹┖銆傛病鏈変笟鍔℃暟鎹椂锛岄〉闈㈠彲鍚姩锛屼絾涓嶄細鏄剧ず鐪熷疄涓氬姟缁撴灉銆?
-## GitHub 涓婁紶杈圭晫
+首次部署时 `data/` 可以为空。没有业务数据时，页面可以启动，但不会显示真实业务结果。
 
-浠撳簱鍙笂浼犱唬鐮佸拰鏂囨。锛屼笉涓婁紶涓氬姟鍘熷鏁版嵁鍜岀敓鎴愮粨鏋溿€?
-榛樿涓嶄笂浼狅細
+## GitHub 上传边界
+
+仓库只上传代码和文档，不上传业务原始数据和生成结果。
+
+默认不上传：
 
 - `data/`
 - `db/*.duckdb`
@@ -99,19 +130,21 @@ data/
 - `logs/`
 - `exports/`
 
-## 鏂囨。
+## 文档
 
-涓昏鏂囨。鍦?`docs/` 鐩綍锛?
-- `Python+DuckDB+Parquet+PowerBI閲嶆瀯鏂规.md`
-- `Python+DuckDB+PowerBI鐩磋繛閲嶆瀯鏂规.md`
-- `ODS-DWD-ADS鐜版湁琛ㄨ鏄?md`
-- `ODS-DWD-ADS琛ㄧ敓鎴愭祦绋嬭鏄?md`
-- `鍚屽煄閰嶉€佺粡钀ュ垎鏋愮郴缁?瀛楁瀛楀吀-v1.md`
-- `鍚屽煄閰嶉€佺粡钀ュ垎鏋愮郴缁?椤圭洰瀹屾暣鍙ｅ緞鎵嬪唽-v1.md`
+主要文档在 `docs/` 目录：
 
-## 榛樿绔彛
+- `Python+DuckDB+Parquet+PowerBI重构方案.md`
+- `Python+DuckDB+PowerBI直连重构方案.md`
+- `ODS-DWD-ADS现有表说明.md`
+- `ODS-DWD-ADS表生成流程说明.md`
+- `同城配送经营分析系统-字段字典-v1.md`
+- `同城配送经营分析系统-项目完整口径手册-v1.md`
 
-缃戦〉鐪嬫澘榛樿绔彛锛?
+## 默认端口
+
+网页看板默认端口：
+
 ```text
 8090
 ```
