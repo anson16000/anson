@@ -16,6 +16,7 @@ paths:
   partners: ./data/partners
   logs: ./logs
   static: ./app/static
+  powerbi_parquet: ./exports/powerbi_parquet
 
 business:
   valid_order_cancel_threshold_minutes: 5

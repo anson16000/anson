@@ -4,17 +4,20 @@ __pycache__/
 .venv/
 venv/
 
-# 数据文件
+# Business data and generated databases
 data/
 db/*.duckdb
 db/*.duckdb.wal
 db/*.db
 
-# 日志
+# Power BI generated exports
+exports/
+
+# Logs
 logs/
 *.log
 
-# 本地工具与系统文件
+# Local tools and system files
 .codebuddy/
 .DS_Store
 Thumbs.db

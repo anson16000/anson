@@ -27,6 +27,7 @@ class PathsConfig(BaseModel):
     partners: str = "./data/partners"
     logs: str = "./logs"
     static: str = "./app/static"
+    powerbi_parquet: str = "./exports/powerbi_parquet"
 
 
 class BusinessConfig(BaseModel):
@@ -101,6 +102,7 @@ def ensure_directories(settings: Settings) -> None:
         settings.paths.partners,
         settings.paths.logs,
         settings.paths.static,
+        settings.paths.powerbi_parquet,
     ]
     if settings.database.path and settings.database.backend.lower() in {"duckdb", "sqlite"}:
         folders.append(Path(settings.database.path).parent.as_posix())

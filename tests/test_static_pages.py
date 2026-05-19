@@ -57,6 +57,23 @@ class StaticPageContentTestCase(unittest.TestCase):
         self.assertIn('label: "完成总订单"', sections)
         self.assertIn('label: "是否达标"', sections)
 
+    def test_entities_page_contains_fulltime_parttime_heatmaps(self):
+        html = (ROOT / "app" / "static" / "entities.html").read_text(encoding="utf-8")
+        js = (ROOT / "app" / "static" / "entities.js").read_text(encoding="utf-8")
+        sections = (ROOT / "app" / "static" / "modules" / "hourly-workforce-sections.js").read_text(encoding="utf-8")
+
+        self.assertIn("全职兼职热力", html)
+        self.assertIn('id="entitiesWorkforceFulltimeRiderHeatmap"', html)
+        self.assertIn('id="entitiesWorkforceParttimeRiderHeatmap"', html)
+        self.assertIn('id="entitiesWorkforceFulltimeEfficiencyHeatmap"', html)
+        self.assertIn('id="entitiesWorkforceParttimeEfficiencyHeatmap"', html)
+        self.assertIn('/api/v1/partner/${filters.partner_id}/hourly', js)
+        self.assertIn("renderWorkforceHeatmaps(hourly, WORKFORCE_TARGETS)", js)
+        self.assertIn("fulltime_accepted_rider_count", sections)
+        self.assertIn("parttime_accepted_rider_count", sections)
+        self.assertIn("fulltime_efficiency", sections)
+        self.assertIn("parttime_efficiency", sections)
+
 
 if __name__ == "__main__":
     unittest.main()

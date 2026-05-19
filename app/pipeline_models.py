@@ -76,3 +76,6 @@ class ImportResult:
     build_ads_seconds: float
     publish_seconds: float
     total_seconds: float
+    export_powerbi_seconds: float = 0.0
+    powerbi_export_path: str | None = None
+    powerbi_export_files: int = 0

@@ -39,10 +39,12 @@ from app.models import (
     OrderDetailRaw,
     PartnerRoster,
     PartnerRosterRaw,
+    PartnerSlaConfig,
     RiderRoster,
     RiderRosterRaw,
 )
 from app.pipeline_models import ImportResult, LoadStageOutcome, MergeOutcome, PreparedOrderFile, PreparedRosterFile, PreprocessOutcome
+from app.powerbi_export import EXCLUDED_PARTNER_IDS, export_powerbi_parquet
 from app.services.import_runtime import (
     build_import_message,
     get_latest_import_info as _get_latest_import_info,
@@ -66,7 +68,8 @@ from app.utils import (
 
 
 ORDER_FIELD_MAP = {
-    "order_id": ["订单编号", "订单号", "订单id", "订单ID", "order_id"],
+    # 订单唯一主键必须来自原始订单明细表的“订单编号”，不再用“订单ID”等字段兜底。
+    "order_id": ["订单编号"],
     "partner_id": ["合伙人id", "合伙人ID", "合伙人编号", "partner_id"],
     "partner_name": ["合伙人", "合伙人名称", "合伙人公司名", "合伙人公司名称", "partner_name"],
     "merchant_id": ["商家id", "商家ID", "商户id", "商户ID", "merchant_id"],
@@ -93,7 +96,50 @@ ORDER_FIELD_MAP = {
     "marketing_coupon_id": ["营销优惠券id", "营销优惠券ID", "营销优惠劵id", "营销优惠劵ID", "marketing_coupon_id"],
     "rider_income": ["帮手收入", "骑手收入", "rider_income"],
     "partner_income": ["合伙人收入", "partner_income"],
+    "hq_income": ["总部收入", "hq_income"],
+    "maiyatian_income": ["麦芽田收入", "maiyatian_income", "myt_income"],
+    "insurance_fee": ["保险费", "insurance_fee"],
 }
+
+
+def _excluded_partner_ids_sql() -> str:
+    return ", ".join(_sql_literal(partner_id) for partner_id in EXCLUDED_PARTNER_IDS)
+
+
+def _delete_excluded_partner_rows(session: Session) -> None:
+    if not EXCLUDED_PARTNER_IDS:
+        return
+
+    for model in (
+        OrderDetailRaw,
+        PartnerRosterRaw,
+        PartnerRoster,
+        PartnerSlaConfig,
+        DwdOrderDetail,
+        AdsAdminPartnerMetrics,
+        AdsPartnerDayMetrics,
+        AdsPartnerHourMetrics,
+        AdsPartnerRiderDayMetrics,
+        AdsPartnerMerchantDayMetrics,
+        AdsPartnerUserMerchantMetrics,
+        AdsDirectCancelDayMetrics,
+        AdsDirectCouponMetrics,
+        AdsDirectHourMetrics,
+        AdsDirectMerchantDayMetrics,
+        AdsDirectNewMerchantMetrics,
+        AdsDirectNewRiderMetrics,
+        AdsDirectOrderSourceDayMetrics,
+    ):
+        session.execute(delete(model).where(model.partner_id.in_(EXCLUDED_PARTNER_IDS)))
+
+    session.execute(
+        text(
+            f"""
+            DELETE FROM stg_order_raw
+            WHERE CAST(partner_id AS VARCHAR) IN ({_excluded_partner_ids_sql()})
+            """
+        )
+    )
 
 RIDER_FIELD_MAP = {
     "rider_id": ["帮手id", "帮手ID", "配送员id", "配送员ID", "骑手id", "骑手ID", "rider_id"],
@@ -154,6 +200,9 @@ def _migrate_tables(engine) -> None:
             ("amount_paid", "VARCHAR"),
             ("rider_income", "VARCHAR"),
             ("partner_income", "VARCHAR"),
+            ("hq_income", "VARCHAR"),
+            ("maiyatian_income", "VARCHAR"),
+            ("insurance_fee", "VARCHAR"),
         ],
         "dwd_order_detail": [
             ("shop_name", "VARCHAR"),
@@ -177,6 +226,9 @@ def _migrate_tables(engine) -> None:
             ("amount_paid", "DOUBLE"),
             ("rider_income", "DOUBLE"),
             ("partner_income", "DOUBLE"),
+            ("hq_income", "DOUBLE"),
+            ("maiyatian_income", "DOUBLE"),
+            ("insurance_fee", "DOUBLE"),
             ("coupon_id", "VARCHAR"),
             ("marketing_coupon_id", "VARCHAR"),
             ("hq_discount_raw_amount", "DOUBLE"),
@@ -464,7 +516,10 @@ def _ensure_order_stage_table(session: Session) -> None:
                 discount_amount VARCHAR,
                 amount_paid VARCHAR,
                 rider_income VARCHAR,
-                partner_income VARCHAR
+                partner_income VARCHAR,
+                hq_income VARCHAR,
+                maiyatian_income VARCHAR,
+                insurance_fee VARCHAR
             )
             """
         )
@@ -738,7 +793,10 @@ def _load_single_order_to_stage(session: Session, run_id: str, order_file: Prepa
             discount_amount,
             amount_paid,
             rider_income,
-            partner_income
+            partner_income,
+            hq_income,
+            maiyatian_income,
+            insurance_fee
         )
         SELECT
             {_sql_literal(run_id)},
@@ -771,7 +829,10 @@ def _load_single_order_to_stage(session: Session, run_id: str, order_file: Prepa
             {expressions["discount_amount"]},
             {expressions["amount_paid"]},
             {expressions["rider_income"]},
-            {expressions["partner_income"]}
+            {expressions["partner_income"]},
+            {expressions["hq_income"]},
+            {expressions["maiyatian_income"]},
+            {expressions["insurance_fee"]}
         FROM stg_source
     """
     session.execute(text(insert_sql))
@@ -943,6 +1004,9 @@ def _merge_ods_and_rosters(
                             amount_paid,
                             rider_income,
                             partner_income,
+                            hq_income,
+                            maiyatian_income,
+                            insurance_fee,
                             raw_payload
                         )
                         SELECT
@@ -979,6 +1043,9 @@ def _merge_ods_and_rosters(
                             amount_paid,
                             rider_income,
                             partner_income,
+                            hq_income,
+                            maiyatian_income,
+                            insurance_fee,
                             NULL
                         FROM stg_order_raw
                         WHERE batch_id = {_sql_literal(run_id)}
@@ -1222,6 +1289,9 @@ def rebuild_dwd(session: Session, settings: Settings, order_months: set[str], ba
     amount_paid_sql = _amount_sql("r.amount_paid")
     rider_income_sql = _amount_sql("r.rider_income")
     partner_income_sql = _amount_sql("r.partner_income")
+    hq_income_sql = _amount_sql("r.hq_income")
+    maiyatian_income_sql = _amount_sql("r.maiyatian_income")
+    insurance_fee_sql = _amount_sql("r.insurance_fee")
 
     sql = f"""
         INSERT INTO dwd_order_detail (
@@ -1233,7 +1303,8 @@ def rebuild_dwd(session: Session, settings: Settings, order_months: set[str], ba
             is_new_rider_order, is_new_merchant_order, is_new_partner_order, service_online_flag,
             is_timeout_cancel, is_not_timeout_cancel, is_unaccepted_cancel, is_accepted_cancel,
             is_rider_noliability_cancel, has_coupon_order, order_price, amount_payable, amount_paid,
-            rider_income, partner_income, coupon_id, marketing_coupon_id, hq_discount_raw_amount, discount_raw_amount,
+            rider_income, partner_income, hq_income, maiyatian_income, insurance_fee,
+            coupon_id, marketing_coupon_id, hq_discount_raw_amount, discount_raw_amount,
             hq_subsidy_amount, partner_subsidy_amount, is_cross_day_order
         )
         WITH latest_raw AS (
@@ -1273,6 +1344,9 @@ def rebuild_dwd(session: Session, settings: Settings, order_months: set[str], ba
                 {amount_paid_sql} AS amount_paid_value,
                 {rider_income_sql} AS rider_income_value,
                 {partner_income_sql} AS partner_income_value,
+                {hq_income_sql} AS hq_income_value,
+                {maiyatian_income_sql} AS maiyatian_income_value,
+                {insurance_fee_sql} AS insurance_fee_value,
                 r.coupon_id,
                 r.marketing_coupon_id
             FROM latest_raw r
@@ -1344,6 +1418,9 @@ def rebuild_dwd(session: Session, settings: Settings, order_months: set[str], ba
                 t.amount_paid_value,
                 t.rider_income_value,
                 t.partner_income_value,
+                t.hq_income_value,
+                t.maiyatian_income_value,
+                t.insurance_fee_value,
                 t.coupon_id,
                 t.marketing_coupon_id,
                 CASE WHEN t.marketing_coupon_id IS NULL OR TRIM(t.marketing_coupon_id) = '' THEN FALSE ELSE TRUE END AS has_marketing_coupon
@@ -1443,6 +1520,9 @@ def rebuild_dwd(session: Session, settings: Settings, order_months: set[str], ba
             j.amount_paid_value,
             j.rider_income_value,
             j.partner_income_value,
+            j.hq_income_value,
+            j.maiyatian_income_value,
+            j.insurance_fee_value,
             j.coupon_id,
             j.marketing_coupon_id,
             j.hq_discount_value,
@@ -2000,6 +2080,9 @@ def import_all(settings: Settings, mode: str = "auto") -> ImportResult:
     merge_ods_seconds = 0.0
     build_ads_seconds = 0.0
     publish_seconds = 0.0
+    export_powerbi_seconds = 0.0
+    powerbi_export_path: str | None = None
+    powerbi_export_files = 0
 
     processed_files = 0
     skipped_files = 0
@@ -2063,6 +2146,7 @@ def import_all(settings: Settings, mode: str = "auto") -> ImportResult:
         )
 
         with session_scope(session_factory) as session:
+            _delete_excluded_partner_rows(session)
             months_to_rebuild = set(touched_months)
             if merge_result.roster_changed:
                 months_to_rebuild = _all_order_months(session)
@@ -2114,6 +2198,39 @@ def import_all(settings: Settings, mode: str = "auto") -> ImportResult:
             "success",
             data_version,
         )
+
+        export_started_at = datetime.utcnow()
+        export_start = time.perf_counter()
+        try:
+            export_result = export_powerbi_parquet(settings, session_factory=session_factory)
+            export_powerbi_seconds = time.perf_counter() - export_start
+            powerbi_export_path = export_result.export_dir
+            powerbi_export_files = export_result.file_count
+            _record_stage_metric(
+                session_factory,
+                run_id,
+                "EXPORT_POWERBI",
+                export_started_at,
+                datetime.utcnow(),
+                export_result.table_count,
+                export_result.file_count,
+                "success",
+                export_result.export_dir,
+            )
+        except Exception as export_exc:  # noqa: BLE001
+            export_powerbi_seconds = time.perf_counter() - export_start
+            _record_stage_metric(
+                session_factory,
+                run_id,
+                "EXPORT_POWERBI",
+                export_started_at,
+                datetime.utcnow(),
+                0,
+                0,
+                "failed",
+                str(export_exc),
+            )
+            raise
     except Exception as exc:  # noqa: BLE001
         status = "failed"
         message = str(exc)
@@ -2129,6 +2246,8 @@ def import_all(settings: Settings, mode: str = "auto") -> ImportResult:
         error_files=error_files,
         current_message=message,
     )
+    if status in {"success", "partial_success"} and powerbi_export_path:
+        message = f"{message}；Power BI Parquet 已导出"
 
     with session_scope(session_factory) as session:
         import_log = session.get(ImportLog, run_id)
@@ -2166,6 +2285,9 @@ def import_all(settings: Settings, mode: str = "auto") -> ImportResult:
         build_ads_seconds=round(build_ads_seconds, 3),
         publish_seconds=round(publish_seconds, 3),
         total_seconds=round(total_seconds, 3),
+        export_powerbi_seconds=round(export_powerbi_seconds, 3),
+        powerbi_export_path=powerbi_export_path,
+        powerbi_export_files=powerbi_export_files,
     )
 
 

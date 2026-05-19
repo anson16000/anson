@@ -6,6 +6,7 @@ import uvicorn
 
 from app.config import load_settings
 from app.pipeline import import_all, init_database
+from app.powerbi_export import export_powerbi_parquet
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -21,6 +22,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="导入模式：auto=按文件去重跳过未变化文件；force=忽略去重并强制重建当前文件对应月份",
     )
 
+    subparsers.add_parser("export-powerbi", help="导出 Power BI 专用 Parquet 成品层")
+
     server_parser = subparsers.add_parser("server", help="启动本地网页看板服务")
     server_parser.add_argument("--host", default=None, help=f"服务器主机地址（默认：{settings.server.host}）")
     server_parser.add_argument("--port", type=int, default=None, help=f"服务器端口（默认：{settings.server.port}）")
@@ -34,10 +37,18 @@ def main() -> None:
     settings = load_settings()
 
     if args.command == "import":
-      init_database(settings)
-      result = import_all(settings, mode=args.mode)
-      print(result)
-      return
+        result = import_all(settings, mode=args.mode)
+        print(result)
+        return
+
+    if args.command == "export-powerbi":
+        engine, session_factory = init_database(settings)
+        try:
+            result = export_powerbi_parquet(settings, session_factory=session_factory)
+            print(result)
+        finally:
+            engine.dispose()
+        return
 
     from app.api import create_app
 

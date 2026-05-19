@@ -97,7 +97,7 @@ export function renderHeatmap(selector, items, metricKey, mode = "count", option
     cells += `<div class="heatmap-label sticky-col">${escapeHtml(String(date).slice(5))}</div>`;
     hours.forEach((hour) => {
       const value = valueMap.get(`${date}-${hour}`) || 0;
-      const display = mode === "rate" ? `${(value * 100).toFixed(0)}%` : formatNumber(value);
+      const display = mode === "rate" ? `${(value * 100).toFixed(0)}%` : mode === "decimal" ? Number(value || 0).toFixed(2) : formatNumber(value);
       cells += `<div class="heatmap-cell" style="background:${heatColor(value, maxValue, mode)}">${escapeHtml(display)}</div>`;
     });
   });
@@ -112,6 +112,12 @@ function heatColor(value, maxValue, mode) {
     if (ratio > 0.8) return "#c75146";
     if (ratio > 0.5) return "#c88425";
     return "#217346";
+  }
+  if (mode === "decimal") {
+    if (ratio > 0.8) return "#1b7849";
+    if (ratio > 0.5) return "#5fa37a";
+    if (ratio > 0.25) return "#a8d4b8";
+    return "#d4edda";
   }
   if (ratio > 0.8) return "#1b7849";
   if (ratio > 0.5) return "#5fa37a";

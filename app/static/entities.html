@@ -155,8 +155,44 @@
       </div>
       <article class="report-card"><div id="merchantLikeUsersTable" class="table-wrap"></div></article>
     </section>
+
+    <section class="report-section">
+      <div class="section-head"><div><p class="section-kicker">全职兼职热力</p><h2>全职兼职时段热力</h2></div></div>
+      <div id="entitiesWorkforceConclusion" class="tags"></div>
+      <div id="entitiesWorkforceCards" class="cards summary-strip">
+        <div class="kpi-tier kpi-tier-result"><span class="kpi-tier-label">接单人数</span></div>
+        <div class="kpi-tier kpi-tier-process"><span class="kpi-tier-label">人效</span></div>
+      </div>
+      <article class="report-card">
+        <div class="card-head"><h3>全职 / 兼职接单人数热力图</h3></div>
+        <div class="heatmap-tabs" data-tab-group="entities-riders">
+          <button class="tab-btn active" data-tab="totalRiders">总接单骑手数</button>
+          <button class="tab-btn" data-tab="fulltimeRiders">全职接单骑手数</button>
+          <button class="tab-btn" data-tab="parttimeRiders">兼职接单骑手数</button>
+        </div>
+        <div class="tab-panels" data-tab-group="entities-riders">
+          <div class="tab-panel active" data-tab="totalRiders"><div id="entitiesWorkforceTotalRiderHeatmap"></div></div>
+          <div class="tab-panel" data-tab="fulltimeRiders"><div id="entitiesWorkforceFulltimeRiderHeatmap"></div></div>
+          <div class="tab-panel" data-tab="parttimeRiders"><div id="entitiesWorkforceParttimeRiderHeatmap"></div></div>
+        </div>
+      </article>
+      <article class="report-card">
+        <div class="card-head"><h3>全职 / 兼职人效热力图</h3></div>
+        <div class="heatmap-tabs" data-tab-group="entities-efficiency">
+          <button class="tab-btn active" data-tab="totalEfficiency">总人效</button>
+          <button class="tab-btn" data-tab="fulltimeEfficiency">全职人效</button>
+          <button class="tab-btn" data-tab="parttimeEfficiency">兼职人效</button>
+        </div>
+        <div class="tab-panels" data-tab-group="entities-efficiency">
+          <div class="tab-panel active" data-tab="totalEfficiency"><div id="entitiesWorkforceTotalEfficiencyHeatmap"></div></div>
+          <div class="tab-panel" data-tab="fulltimeEfficiency"><div id="entitiesWorkforceFulltimeEfficiencyHeatmap"></div></div>
+          <div class="tab-panel" data-tab="parttimeEfficiency"><div id="entitiesWorkforceParttimeEfficiencyHeatmap"></div></div>
+        </div>
+      </article>
+      <article class="report-card"><div id="entitiesWorkforceHourlyTable" class="table-wrap"></div></article>
+    </section>
   </div>
 
-  <script type="module" src="/static/entities.js"></script>
+  <script type="module" src="/static/entities.js?v=20260519-workforce"></script>
 </body>
 </html>

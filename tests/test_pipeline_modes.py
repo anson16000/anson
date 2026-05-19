@@ -13,7 +13,7 @@ class PipelineModesTestCase(unittest.TestCase):
     def test_force_mode_never_skips_on_registry_hit(self):
         self.assertFalse(_should_skip_success_registry("force", True))
 
-    def test_order_id_prefers_order_number_over_order_id(self):
+    def test_order_id_uses_order_number_as_required_primary_key(self):
         row = {
             "订单ID": "52",
             "订单编号": "220202604010828316807014068",
@@ -22,6 +22,13 @@ class PipelineModesTestCase(unittest.TestCase):
         mapped = _canonical_row(row, ORDER_FIELD_MAP)
 
         self.assertEqual(mapped["order_id"], "220202604010828316807014068")
+
+    def test_order_id_does_not_fallback_to_order_id_column(self):
+        row = {"订单ID": "52"}
+
+        mapped = _canonical_row(row, ORDER_FIELD_MAP)
+
+        self.assertIsNone(mapped["order_id"])
 
 
 if __name__ == "__main__":

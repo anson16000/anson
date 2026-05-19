@@ -97,7 +97,7 @@ Power BI
 
 | 字段 | 说明 |
 | --- | --- |
-| 订单ID | 每个订单唯一标识 |
+| 订单编号 | 每个订单唯一标识；MySQL / Power BI 中可命名为 `order_id` |
 | 下单时间 | 用户创建订单时间 |
 | 支付时间 | 用户支付时间 |
 | 接单时间 | 骑手接单时间 |
@@ -201,7 +201,7 @@ ODS 层建议尽量贴近原始表，但字段名要标准化。
 
 ```sql
 CREATE TABLE IF NOT EXISTS ods_order_detail_raw (
-  order_id              VARCHAR(64) PRIMARY KEY COMMENT '订单ID',
+  order_id              VARCHAR(64) PRIMARY KEY COMMENT '订单编号，来源于原始订单明细表的订单编号列',
   order_month           CHAR(7) COMMENT '订单月份，例如 2026-03',
   partner_id            VARCHAR(64) COMMENT '合伙人ID',
   partner_name          VARCHAR(255) COMMENT '合伙人名称',
@@ -1549,4 +1549,3 @@ ads_merchant_day_metrics
 ```
 
 只要 DWD 这张标准订单明细表做准，后面无论是 Power BI、网页看板，还是其他分析工具，都能复用同一套数据底座。
-

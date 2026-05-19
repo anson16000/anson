@@ -127,6 +127,9 @@ class OrderDetailRaw(Base):
     amount_paid: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rider_income: Mapped[str | None] = mapped_column(String(64), nullable=True)
     partner_income: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    hq_income: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    maiyatian_income: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    insurance_fee: Mapped[str | None] = mapped_column(String(64), nullable=True)
     raw_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
@@ -281,6 +284,9 @@ class DwdOrderDetail(Base):
     amount_paid: Mapped[float] = mapped_column(Float, default=0.0)
     rider_income: Mapped[float] = mapped_column(Float, default=0.0)
     partner_income: Mapped[float] = mapped_column(Float, default=0.0)
+    hq_income: Mapped[float] = mapped_column(Float, default=0.0)
+    maiyatian_income: Mapped[float] = mapped_column(Float, default=0.0)
+    insurance_fee: Mapped[float] = mapped_column(Float, default=0.0)
     coupon_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     marketing_coupon_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     hq_discount_raw_amount: Mapped[float] = mapped_column(Float, default=0.0)

@@ -23,12 +23,30 @@ import {
   renderRiderRoster,
   renderRiderTierTable,
 } from "/static/modules/entities-sections.js";
+import {
+  clearWorkforcePanels,
+  renderWorkforceHeatmaps,
+  renderWorkforceSummary,
+  renderWorkforceTable,
+} from "/static/modules/hourly-workforce-sections.js";
 
 const PAGE_KEY = "entities";
 const DEFAULT_VALID_CANCEL_THRESHOLD = "5";
 const DEFAULT_RIDER_TIERS = "1-9,10-29,30-49,50+";
 const DEFAULT_RIDER_TARGET_COMPLETED = "10";
 const DEFAULT_RIDER_TARGET_DAYS = "10";
+const WORKFORCE_TARGETS = {
+  conclusion: "#entitiesWorkforceConclusion",
+  riderCards: "#entitiesWorkforceCards .kpi-tier-result",
+  efficiencyCards: "#entitiesWorkforceCards .kpi-tier-process",
+  totalRiderHeatmap: "#entitiesWorkforceTotalRiderHeatmap",
+  fulltimeRiderHeatmap: "#entitiesWorkforceFulltimeRiderHeatmap",
+  parttimeRiderHeatmap: "#entitiesWorkforceParttimeRiderHeatmap",
+  totalEfficiencyHeatmap: "#entitiesWorkforceTotalEfficiencyHeatmap",
+  fulltimeEfficiencyHeatmap: "#entitiesWorkforceFulltimeEfficiencyHeatmap",
+  parttimeEfficiencyHeatmap: "#entitiesWorkforceParttimeEfficiencyHeatmap",
+  hourlyTable: "#entitiesWorkforceHourlyTable",
+};
 const savedFilters = loadFilters(PAGE_KEY);
 const sharedData = loadFilters("");
 const urlParams = new URLSearchParams(window.location.search);
@@ -142,6 +160,27 @@ async function loadRosters(filters) {
   renderMerchantRoster(merchants.items || []);
 }
 
+async function loadWorkforceHeatmaps(filters) {
+  if (!filters.partner_id) {
+    clearWorkforcePanels(WORKFORCE_TARGETS);
+    return;
+  }
+  try {
+    const hourly = await api(`/api/v1/partner/${filters.partner_id}/hourly`, {
+      start_date: filters.start_date,
+      end_date: filters.end_date,
+      valid_cancel_threshold_minutes: filters.valid_cancel_threshold_minutes || DEFAULT_VALID_CANCEL_THRESHOLD,
+    });
+    renderWorkforceSummary(hourly, WORKFORCE_TARGETS);
+    renderWorkforceHeatmaps(hourly, WORKFORCE_TARGETS);
+    renderWorkforceTable(hourly, WORKFORCE_TARGETS);
+    initGroupedTabs();
+  } catch (error) {
+    clearWorkforcePanels(WORKFORCE_TARGETS);
+    throw error;
+  }
+}
+
 const controller = createPageController({
   initialState: {
     partners: [],
@@ -170,6 +209,7 @@ const controller = createPageController({
     renderMerchantRoster([]);
     renderOrderSourceSummary({ items: [] });
     renderOrderSourceTable([]);
+    clearWorkforcePanels(WORKFORCE_TARGETS);
   },
   populateFilters: async (meta, state) => {
     ensureVisibleValidCancelThresholdField();
@@ -298,8 +338,27 @@ const controller = createPageController({
     renderOrderSourceSummary(orderSources);
     renderOrderSourceTable(orderSources.items || []);
     renderEntityContributionCharts(newRiders, newMerchants);
+    await loadWorkforceHeatmaps(filters);
   },
   onError: showError,
 });
 
 controller.bootstrap().catch(showError);
+
+function initGroupedTabs() {
+  document.querySelectorAll(".heatmap-tabs").forEach((tabContainer) => {
+    if (tabContainer.dataset.bound === "true") return;
+    tabContainer.dataset.bound = "true";
+    const group = tabContainer.dataset.tabGroup;
+    tabContainer.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.tab;
+        tabContainer.querySelectorAll(".tab-btn").forEach((item) => item.classList.remove("active"));
+        btn.classList.add("active");
+        document.querySelectorAll(`.tab-panels[data-tab-group="${group}"] .tab-panel`).forEach((panel) => {
+          panel.classList.toggle("active", panel.dataset.tab === tab);
+        });
+      });
+    });
+  });
+}
