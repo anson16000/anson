@@ -12,6 +12,37 @@
 -> Power BI Parquet 成品层
 ```
 
+## 2019 Demo Dataset
+
+This project includes a synthetic one-month demo mode for resume and interview demos.
+
+Use:
+
+```text
+05-demo-2019-import.bat
+06-demo-2019-start.bat
+05-生成并导入2019演示数据.bat
+06-启动2019演示看板.bat
+```
+
+Demo scope:
+
+- Month: 2019-05
+- Partners: 12
+- Riders: 120
+- Merchants: 192
+- Orders: about 10,000
+
+Demo files are generated under:
+
+```text
+demo_data/2019/
+db/demo_2019.duckdb
+exports/demo2019_powerbi_parquet/
+```
+
+The demo data is synthetic and is ignored by Git.
+
 ## 页面入口
 
 | 页面 | 路由 | 说明 |

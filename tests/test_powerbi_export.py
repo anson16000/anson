@@ -1,6 +1,6 @@
 import unittest
 
-from app.config import PathsConfig
+from app.config import BusinessConfig, PathsConfig
 from app.powerbi_export import EXCLUDED_PARTNER_IDS, POWERBI_EXPORTS, _copy_query_to_parquet_sql
 from main import build_parser
 
@@ -30,6 +30,9 @@ class PowerBiExportTestCase(unittest.TestCase):
 
     def test_default_powerbi_parquet_path(self):
         self.assertEqual(PathsConfig().powerbi_parquet, "./exports/powerbi_parquet")
+
+    def test_default_excluded_partner_ids_live_in_business_config(self):
+        self.assertEqual(BusinessConfig().excluded_partner_ids, ["101"])
 
     def test_export_powerbi_command_exists(self):
         parser = build_parser()

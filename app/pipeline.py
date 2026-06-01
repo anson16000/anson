@@ -44,7 +44,8 @@ from app.models import (
     RiderRosterRaw,
 )
 from app.pipeline_models import ImportResult, LoadStageOutcome, MergeOutcome, PreparedOrderFile, PreparedRosterFile, PreprocessOutcome
-from app.powerbi_export import EXCLUDED_PARTNER_IDS, export_powerbi_parquet
+from app.business_rules import excluded_partner_ids_from_settings, sql_literal_list
+from app.powerbi_export import export_powerbi_parquet
 from app.services.import_runtime import (
     build_import_message,
     get_latest_import_info as _get_latest_import_info,
@@ -102,12 +103,12 @@ ORDER_FIELD_MAP = {
 }
 
 
-def _excluded_partner_ids_sql() -> str:
-    return ", ".join(_sql_literal(partner_id) for partner_id in EXCLUDED_PARTNER_IDS)
+def _excluded_partner_ids_sql(excluded_partner_ids: tuple[str, ...]) -> str:
+    return sql_literal_list(excluded_partner_ids)
 
 
-def _delete_excluded_partner_rows(session: Session) -> None:
-    if not EXCLUDED_PARTNER_IDS:
+def _delete_excluded_partner_rows(session: Session, excluded_partner_ids: tuple[str, ...]) -> None:
+    if not excluded_partner_ids:
         return
 
     for model in (
@@ -130,13 +131,13 @@ def _delete_excluded_partner_rows(session: Session) -> None:
         AdsDirectNewRiderMetrics,
         AdsDirectOrderSourceDayMetrics,
     ):
-        session.execute(delete(model).where(model.partner_id.in_(EXCLUDED_PARTNER_IDS)))
+        session.execute(delete(model).where(model.partner_id.in_(excluded_partner_ids)))
 
     session.execute(
         text(
             f"""
             DELETE FROM stg_order_raw
-            WHERE CAST(partner_id AS VARCHAR) IN ({_excluded_partner_ids_sql()})
+            WHERE CAST(partner_id AS VARCHAR) IN ({_excluded_partner_ids_sql(excluded_partner_ids)})
             """
         )
     )
@@ -2092,6 +2093,7 @@ def import_all(settings: Settings, mode: str = "auto") -> ImportResult:
     latest_ready_month: str | None = None
     status = "success"
     message = "导入完成"
+    excluded_partner_ids = excluded_partner_ids_from_settings(settings)
 
     try:
         pre_started_at = datetime.utcnow()
@@ -2146,7 +2148,7 @@ def import_all(settings: Settings, mode: str = "auto") -> ImportResult:
         )
 
         with session_scope(session_factory) as session:
-            _delete_excluded_partner_rows(session)
+            _delete_excluded_partner_rows(session, excluded_partner_ids)
             months_to_rebuild = set(touched_months)
             if merge_result.roster_changed:
                 months_to_rebuild = _all_order_months(session)
@@ -2230,7 +2232,7 @@ def import_all(settings: Settings, mode: str = "auto") -> ImportResult:
                 "failed",
                 str(export_exc),
             )
-            raise
+            message = f"导入完成；Power BI Parquet 导出失败：{export_exc}"
     except Exception as exc:  # noqa: BLE001
         status = "failed"
         message = str(exc)

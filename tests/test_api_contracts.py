@@ -96,7 +96,7 @@ class ApiContractsTestCase(unittest.TestCase):
             row("U001", None),
         ]
 
-        items, hourly_summary = _build_hourly_metrics(rows, threshold=5, include_date=True)
+        items, hourly_summary, daily_summary = _build_hourly_metrics(rows, threshold=5, include_date=True)
 
         self.assertEqual(items[0]["accepted_rider_count"], 3)
         self.assertEqual(items[0]["fulltime_accepted_rider_count"], 1)
@@ -110,6 +110,53 @@ class ApiContractsTestCase(unittest.TestCase):
             hourly_summary[0]["accepted_rider_count"],
             hourly_summary[0]["fulltime_accepted_rider_count"] + hourly_summary[0]["parttime_accepted_rider_count"],
         )
+        self.assertEqual(daily_summary[0]["accepted_rider_count"], 3)
+        self.assertEqual(daily_summary[0]["fulltime_accepted_rider_count"], 1)
+        self.assertEqual(daily_summary[0]["parttime_accepted_rider_count"], 1)
+
+    def test_partner_hourly_accept_bucket_counts_completed_orders_by_accept_time(self):
+        row = SimpleNamespace(
+            order_date=date(2026, 4, 6),
+            order_hour=23,
+            accept_time=datetime(2026, 4, 7, 0, 13, 47),
+            accept_hour=0,
+            rider_id="13407",
+            is_completed=True,
+            is_cancelled=False,
+            is_paid=True,
+            pay_cancel_minutes=None,
+            employment_type="parttime",
+        )
+
+        second_row = SimpleNamespace(
+            **{
+                **row.__dict__,
+                "accept_time": datetime(2026, 4, 7, 1, 5, 0),
+                "accept_hour": 1,
+            }
+        )
+
+        items, hourly_summary, daily_summary = _build_hourly_metrics([row, second_row], threshold=5, include_date=True, time_bucket="accept")
+
+        self.assertEqual(items[0]["date"], "2026-04-07")
+        self.assertEqual(items[0]["hour"], 0)
+        self.assertEqual(items[0]["completed_orders"], 1)
+        self.assertEqual(items[0]["accepted_rider_count"], 1)
+        self.assertEqual(items[0]["parttime_completed_orders"], 1)
+        self.assertEqual(items[0]["parttime_accepted_rider_count"], 1)
+        self.assertEqual(items[0]["parttime_efficiency"], 1.0)
+        self.assertEqual(hourly_summary[0]["completed_orders"], 1)
+        self.assertEqual(daily_summary[0]["date"], "2026-04-07")
+        self.assertEqual(daily_summary[0]["accepted_rider_count"], 1)
+        self.assertEqual(daily_summary[0]["parttime_accepted_rider_count"], 1)
+        self.assertEqual(daily_summary[0]["fulltime_accepted_rider_count"], 0)
+
+    def test_partner_hourly_endpoint_supports_accept_time_bucket(self):
+        schema = self.app.openapi()
+        hourly_parameters = schema["paths"]["/api/v1/partner/{partner_id}/hourly"]["get"]["parameters"]
+        hourly_param_names = {item["name"] for item in hourly_parameters}
+
+        self.assertIn("time_bucket", hourly_param_names)
 
     def test_partner_recent_daily_returns_rows_for_all_ranking(self):
         fake_rows = [

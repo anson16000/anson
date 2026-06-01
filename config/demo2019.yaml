@@ -1,6 +1,6 @@
 database:
   backend: duckdb
-  path: ./db/delivery_analysis.duckdb
+  path: ./db/demo_2019.duckdb
 
 import:
   chunk_size: 50000
@@ -8,15 +8,15 @@ import:
   stage_format: csv
 
 paths:
-  orders_raw: ./data/orders_raw
-  orders_stage: ./data/orders_stage
-  orders: ./data/orders
-  riders: ./data/riders
-  merchants: ./data/merchants
-  partners: ./data/partners
+  orders_raw: ./demo_data/2019/orders_raw
+  orders_stage: ./demo_data/2019/orders_stage
+  orders: ./demo_data/2019/orders
+  riders: ./demo_data/2019/riders
+  merchants: ./demo_data/2019/merchants
+  partners: ./demo_data/2019/partners
   logs: ./logs
   static: ./app/static
-  powerbi_parquet: ./exports/powerbi_parquet
+  powerbi_parquet: ./exports/demo2019_powerbi_parquet
 
 business:
   valid_order_cancel_threshold_minutes: 5

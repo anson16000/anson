@@ -170,6 +170,7 @@ async function loadWorkforceHeatmaps(filters) {
       start_date: filters.start_date,
       end_date: filters.end_date,
       valid_cancel_threshold_minutes: filters.valid_cancel_threshold_minutes || DEFAULT_VALID_CANCEL_THRESHOLD,
+      time_bucket: "accept",
     });
     renderWorkforceSummary(hourly, WORKFORCE_TARGETS);
     renderWorkforceHeatmaps(hourly, WORKFORCE_TARGETS);
@@ -177,7 +178,7 @@ async function loadWorkforceHeatmaps(filters) {
     initGroupedTabs();
   } catch (error) {
     clearWorkforcePanels(WORKFORCE_TARGETS);
-    throw error;
+    console.warn("全职/兼职时段热力加载失败", error);
   }
 }
 

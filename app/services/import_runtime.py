@@ -42,6 +42,9 @@ def build_import_message(
     if final_status == "failed":
         return final_status, (current_message or "导入失败")
 
+    if current_message and "Power BI" in current_message:
+        return final_status, current_message
+
     message = "导入完成"
     if final_status == "success" and error_files > 0:
         final_status = "partial_success"

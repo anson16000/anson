@@ -68,11 +68,17 @@ class StaticPageContentTestCase(unittest.TestCase):
         self.assertIn('id="entitiesWorkforceFulltimeEfficiencyHeatmap"', html)
         self.assertIn('id="entitiesWorkforceParttimeEfficiencyHeatmap"', html)
         self.assertIn('/api/v1/partner/${filters.partner_id}/hourly', js)
+        self.assertIn('time_bucket: "accept"', js)
         self.assertIn("renderWorkforceHeatmaps(hourly, WORKFORCE_TARGETS)", js)
         self.assertIn("fulltime_accepted_rider_count", sections)
         self.assertIn("parttime_accepted_rider_count", sections)
         self.assertIn("fulltime_efficiency", sections)
         self.assertIn("parttime_efficiency", sections)
+        self.assertIn("hourly.items || []", sections)
+        self.assertIn("hourly.daily_summary || []", sections)
+        self.assertIn("dailyTotalLabel", sections)
+        self.assertIn("全天接单人数", sections)
+        self.assertIn("date_hour", sections)
 
 
 if __name__ == "__main__":
