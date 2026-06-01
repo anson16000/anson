@@ -68,7 +68,7 @@ export function renderWorkforceHeatmaps(hourly, targets = DEFAULT_TARGETS) {
   const items = hourly.items || [];
   const dailyTotalOptions = {
     dailyTotals: hourly.daily_summary || [],
-    dailyTotalLabel: "人数合计",
+    dailyTotalLabel: "全天接单人数",
     showDailyTotal: true,
   };
   renderHeatmap(targets.totalRiderHeatmap, items, "accepted_rider_count", "count", { emptyText: "暂无总接单骑手数热力图数据", ...dailyTotalOptions });

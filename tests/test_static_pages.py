@@ -77,7 +77,7 @@ class StaticPageContentTestCase(unittest.TestCase):
         self.assertIn("hourly.items || []", sections)
         self.assertIn("hourly.daily_summary || []", sections)
         self.assertIn("dailyTotalLabel", sections)
-        self.assertIn("人数合计", sections)
+        self.assertIn("全天接单人数", sections)
         self.assertIn("date_hour", sections)
 
 
