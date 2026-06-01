@@ -66,9 +66,14 @@ export function renderWorkforceSummary(hourly, targets = DEFAULT_TARGETS) {
 
 export function renderWorkforceHeatmaps(hourly, targets = DEFAULT_TARGETS) {
   const items = hourly.items || [];
-  renderHeatmap(targets.totalRiderHeatmap, items, "accepted_rider_count", "count", { emptyText: "暂无总接单骑手数热力图数据" });
-  renderHeatmap(targets.fulltimeRiderHeatmap, items, "fulltime_accepted_rider_count", "count", { emptyText: "暂无全职接单骑手数热力图数据" });
-  renderHeatmap(targets.parttimeRiderHeatmap, items, "parttime_accepted_rider_count", "count", { emptyText: "暂无兼职接单骑手数热力图数据" });
+  const dailyTotalOptions = {
+    dailyTotals: hourly.daily_summary || [],
+    dailyTotalLabel: "全天接单人数",
+    showDailyTotal: true,
+  };
+  renderHeatmap(targets.totalRiderHeatmap, items, "accepted_rider_count", "count", { emptyText: "暂无总接单骑手数热力图数据", ...dailyTotalOptions });
+  renderHeatmap(targets.fulltimeRiderHeatmap, items, "fulltime_accepted_rider_count", "count", { emptyText: "暂无全职接单骑手数热力图数据", ...dailyTotalOptions });
+  renderHeatmap(targets.parttimeRiderHeatmap, items, "parttime_accepted_rider_count", "count", { emptyText: "暂无兼职接单骑手数热力图数据", ...dailyTotalOptions });
   renderHeatmap(targets.totalEfficiencyHeatmap, items, "efficiency", "decimal", { emptyText: "暂无总人效热力图数据" });
   renderHeatmap(targets.fulltimeEfficiencyHeatmap, items, "fulltime_efficiency", "decimal", { emptyText: "暂无全职人效热力图数据" });
   renderHeatmap(targets.parttimeEfficiencyHeatmap, items, "parttime_efficiency", "decimal", { emptyText: "暂无兼职人效热力图数据" });

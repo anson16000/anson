@@ -75,6 +75,9 @@ class StaticPageContentTestCase(unittest.TestCase):
         self.assertIn("fulltime_efficiency", sections)
         self.assertIn("parttime_efficiency", sections)
         self.assertIn("hourly.items || []", sections)
+        self.assertIn("hourly.daily_summary || []", sections)
+        self.assertIn("dailyTotalLabel", sections)
+        self.assertIn("全天接单人数", sections)
         self.assertIn("date_hour", sections)
 
 

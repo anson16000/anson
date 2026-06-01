@@ -114,7 +114,7 @@ def _build_hourly_metrics(
     threshold: int,
     include_date: bool = True,
     time_bucket: str = "order",
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     time_bucket = (time_bucket or "order").lower()
     if time_bucket not in {"order", "accept"}:
         time_bucket = "order"
@@ -132,6 +132,24 @@ def _build_hourly_metrics(
             "fulltime_completed_orders": 0,
         }
     )
+    per_day = defaultdict(
+        lambda: {
+            "accepted_riders": set(),
+            "parttime_accepted_riders": set(),
+            "fulltime_accepted_riders": set(),
+        }
+    )
+
+    def record_daily_accept(date_text: str | None, row: Any) -> None:
+        if not include_date or not date_text or not row.rider_id:
+            return
+        daily_bucket = per_day[date_text]
+        daily_bucket["accepted_riders"].add(row.rider_id)
+        employment_type = getattr(row, "employment_type", None)
+        if employment_type == "parttime":
+            daily_bucket["parttime_accepted_riders"].add(row.rider_id)
+        elif employment_type == "fulltime":
+            daily_bucket["fulltime_accepted_riders"].add(row.rider_id)
 
     def order_bucket_key(row: Any):
         if row.order_date is None or row.order_hour is None:
@@ -172,6 +190,8 @@ def _build_hourly_metrics(
                     bucket["parttime_accepted_riders"].add(row.rider_id)
                 elif employment_type == "fulltime":
                     bucket["fulltime_accepted_riders"].add(row.rider_id)
+                if include_date:
+                    record_daily_accept(bucket_key[0], row)
             if row.is_completed:
                 bucket["completed_orders"] += 1
                 employment_type = getattr(row, "employment_type", None)
@@ -213,6 +233,8 @@ def _build_hourly_metrics(
                     accept_bucket["parttime_accepted_riders"].add(row.rider_id)
                 elif employment_type == "fulltime":
                     accept_bucket["fulltime_accepted_riders"].add(row.rider_id)
+                if include_date:
+                    record_daily_accept(accepted_key[0], row)
 
     items: list[dict[str, Any]] = []
     by_hour = defaultdict(
@@ -307,7 +329,17 @@ def _build_hourly_metrics(
         for hour, values in sorted(by_hour.items())
     ]
 
-    return items, hourly_summary
+    daily_summary = [
+        {
+            "date": date_text,
+            "accepted_rider_count": len(values["accepted_riders"]),
+            "parttime_accepted_rider_count": len(values["parttime_accepted_riders"]),
+            "fulltime_accepted_rider_count": len(values["fulltime_accepted_riders"]),
+        }
+        for date_text, values in sorted(per_day.items())
+    ]
+
+    return items, hourly_summary, daily_summary
 
 
 def _apply_dwd_filters(
@@ -1385,7 +1417,7 @@ def create_app() -> FastAPI:
             stmt = _apply_dwd_filters(stmt, start_date, end_date, province, city, district, partner_id)
             rows = list(session.scalars(stmt))
 
-        _, hourly_summary = _build_hourly_metrics(rows, threshold=threshold, include_date=False)
+        _, hourly_summary, _ = _build_hourly_metrics(rows, threshold=threshold, include_date=False)
         return api_response(
             {
                 "data_version": info.get("data_version"),
@@ -1660,7 +1692,7 @@ def create_app() -> FastAPI:
             else:
                 stmt = _apply_dwd_filters(stmt, start_date, end_date, partner_id=partner_id)
             rows = list(session.scalars(stmt))
-        items, hourly_summary = _build_hourly_metrics(
+        items, hourly_summary, daily_summary = _build_hourly_metrics(
             rows,
             threshold=threshold,
             include_date=True,
@@ -1676,6 +1708,7 @@ def create_app() -> FastAPI:
                 "latest_ready_month": info.get("latest_ready_month"),
                 "items": items,
                 "hourly_summary": hourly_summary,
+                "daily_summary": daily_summary,
                 "applied_thresholds": {
                     "valid_cancel_threshold_minutes": threshold,
                     "sla_minutes": sla_minutes,

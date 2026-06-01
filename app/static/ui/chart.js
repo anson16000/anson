@@ -88,21 +88,40 @@ export function renderHeatmap(selector, items, metricKey, mode = "count", option
   const dates = [...new Set(items.map((item) => item.date))].sort();
   const hours = Array.from({ length: 24 }, (_, hour) => hour);
   const valueMap = new Map(items.map((item) => [`${item.date}-${item.hour}`, Number(item[metricKey] || 0)]));
-  const maxValue = Math.max(...Array.from(valueMap.values()), 1);
+  const dailyTotals = options.dailyTotals || [];
+  const dailyTotalMap = new Map(dailyTotals.map((item) => [item.date, Number(item[metricKey] || 0)]));
+  const showDailyTotal = Boolean(options.showDailyTotal && dailyTotals.length);
+  const allValues = Array.from(valueMap.values());
+  if (showDailyTotal) {
+    allValues.push(...Array.from(dailyTotalMap.values()));
+  }
+  const maxValue = Math.max(...allValues, 1);
+  const formatValue = (value) => {
+    if (mode === "rate") return `${(value * 100).toFixed(0)}%`;
+    if (mode === "decimal") return Number(value || 0).toFixed(2);
+    return formatNumber(value);
+  };
 
   let cells = `<div class="heatmap-label sticky-col sticky-row"></div>${hours
     .map((hour) => `<div class="heatmap-label sticky-row">${hour}</div>`)
     .join("")}`;
+  if (showDailyTotal) {
+    cells += `<div class="heatmap-label sticky-row">${escapeHtml(options.dailyTotalLabel || "全天")}</div>`;
+  }
   dates.forEach((date) => {
     cells += `<div class="heatmap-label sticky-col">${escapeHtml(String(date).slice(5))}</div>`;
     hours.forEach((hour) => {
       const value = valueMap.get(`${date}-${hour}`) || 0;
-      const display = mode === "rate" ? `${(value * 100).toFixed(0)}%` : mode === "decimal" ? Number(value || 0).toFixed(2) : formatNumber(value);
-      cells += `<div class="heatmap-cell" style="background:${heatColor(value, maxValue, mode)}">${escapeHtml(display)}</div>`;
+      cells += `<div class="heatmap-cell" style="background:${heatColor(value, maxValue, mode)}">${escapeHtml(formatValue(value))}</div>`;
     });
+    if (showDailyTotal) {
+      const dailyValue = dailyTotalMap.get(date) || 0;
+      cells += `<div class="heatmap-cell heatmap-total-cell" style="background:${heatColor(dailyValue, maxValue, mode)}">${escapeHtml(formatValue(dailyValue))}</div>`;
+    }
   });
 
-  host.innerHTML = `<div class="heatmap"><div class="heatmap-grid" style="grid-template-columns: 88px repeat(${hours.length}, minmax(38px, 1fr));">${cells}</div></div>`;
+  const totalColumn = showDailyTotal ? " minmax(78px, 1.25fr)" : "";
+  host.innerHTML = `<div class="heatmap"><div class="heatmap-grid" style="grid-template-columns: 88px repeat(${hours.length}, minmax(38px, 1fr))${totalColumn};">${cells}</div></div>`;
 }
 
 function heatColor(value, maxValue, mode) {
