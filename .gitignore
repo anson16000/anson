@@ -6,6 +6,7 @@ venv/
 
 # Business data and generated databases
 data/
+demo_data/
 db/*.duckdb
 db/*.duckdb.wal
 db/*.db

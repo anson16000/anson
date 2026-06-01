@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import yaml
@@ -112,7 +113,8 @@ def ensure_directories(settings: Settings) -> None:
         resolve_path(str(folder)).mkdir(parents=True, exist_ok=True)
 
 
-def load_settings(config_path: str | Path = "config/config.yaml") -> Settings:
+def load_settings(config_path: str | Path | None = None) -> Settings:
+    config_path = config_path or os.environ.get("DELIVERY_DASHBOARD_CONFIG") or "config/config.yaml"
     path = Path(config_path)
     if not path.is_absolute():
         path = project_root() / path
