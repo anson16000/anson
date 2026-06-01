@@ -90,7 +90,7 @@ export function renderHeatmap(selector, items, metricKey, mode = "count", option
   const valueMap = new Map(items.map((item) => [`${item.date}-${item.hour}`, Number(item[metricKey] || 0)]));
   const dailyTotals = options.dailyTotals || [];
   const dailyTotalMap = new Map(dailyTotals.map((item) => [item.date, Number(item[metricKey] || 0)]));
-  const showDailyTotal = Boolean(options.showDailyTotal && dailyTotals.length);
+  const showDailyTotal = Boolean(options.showDailyTotal);
   const allValues = Array.from(valueMap.values());
   if (showDailyTotal) {
     allValues.push(...Array.from(dailyTotalMap.values()));

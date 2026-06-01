@@ -61,6 +61,7 @@ class StaticPageContentTestCase(unittest.TestCase):
         html = (ROOT / "app" / "static" / "entities.html").read_text(encoding="utf-8")
         js = (ROOT / "app" / "static" / "entities.js").read_text(encoding="utf-8")
         sections = (ROOT / "app" / "static" / "modules" / "hourly-workforce-sections.js").read_text(encoding="utf-8")
+        chart = (ROOT / "app" / "static" / "ui" / "chart.js").read_text(encoding="utf-8")
 
         self.assertIn("全职兼职热力", html)
         self.assertIn('id="entitiesWorkforceFulltimeRiderHeatmap"', html)
@@ -78,6 +79,7 @@ class StaticPageContentTestCase(unittest.TestCase):
         self.assertIn("hourly.daily_summary || []", sections)
         self.assertIn("dailyTotalLabel", sections)
         self.assertIn("全天接单人数", sections)
+        self.assertIn("Boolean(options.showDailyTotal)", chart)
         self.assertIn("date_hour", sections)
 
 
