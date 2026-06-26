@@ -159,6 +159,6 @@ export function renderAlertsTables(metrics, health, fluctuation, entityAlerts = 
       { key: "completed_orders", label: "区间完成订单", render: formatNumber, align: "right" },
     ],
     entityAlerts.inactive_riders || [],
-    { emptyText: entityAlertEmptyText(entityAlerts, "当前合伙人暂无 7 天未接单骑手") },
+    { emptyText: entityAlertEmptyText(entityAlerts, "当前合伙人暂无 3 天未接单骑手") },
   );
 }
