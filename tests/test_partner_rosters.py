@@ -1,6 +1,6 @@
 import unittest
 
-from app.services.partner_rosters import build_partner_riders_payload
+from app.services.partner_rosters import build_partner_merchants_payload, build_partner_riders_payload
 
 
 class PartnerRostersTestCase(unittest.TestCase):
@@ -69,6 +69,55 @@ class PartnerRostersTestCase(unittest.TestCase):
         self.assertEqual(payload["items"][0]["completed_orders"], 8)
         self.assertEqual(payload["items"][0]["qualified_days"], 2)
         self.assertEqual(payload["items"][0]["is_target_met"], 1)
+
+    def test_build_partner_merchants_payload_returns_daily_completed_matrix(self):
+        payload = build_partner_merchants_payload(
+            merchant_rows=[
+                {
+                    "date": "2026-03-01",
+                    "merchant_id": "M001",
+                    "merchant_name": "商家一",
+                    "shop_name": "商户一",
+                    "register_date": "2026-01-10",
+                    "total_orders": 5,
+                    "completed_orders": 3,
+                    "cancelled_orders": 2,
+                    "is_new_merchant": 1,
+                },
+                {
+                    "date": "2026-03-02",
+                    "merchant_id": "M001",
+                    "merchant_name": "商家一",
+                    "shop_name": "商户一",
+                    "register_date": "2026-01-10",
+                    "total_orders": 4,
+                    "completed_orders": 4,
+                    "cancelled_orders": 0,
+                    "is_new_merchant": 1,
+                },
+                {
+                    "date": "2026-03-02",
+                    "merchant_id": "M002",
+                    "merchant_name": "商家二",
+                    "shop_name": None,
+                    "register_date": "2026-02-15",
+                    "total_orders": 2,
+                    "completed_orders": 1,
+                    "cancelled_orders": 1,
+                    "is_new_merchant": 0,
+                },
+            ],
+            new_flag="all",
+            info={"data_version": "v1", "latest_ready_month": "2026-03"},
+            to_iso_date=lambda value: value,
+        )
+
+        self.assertEqual(payload["date_columns"], ["2026-03-01", "2026-03-02"])
+        self.assertEqual(payload["items"][0]["merchant_name"], "商户一")
+        self.assertEqual(payload["items"][0]["daily_completed_orders"]["2026-03-01"], 3)
+        self.assertEqual(payload["items"][0]["daily_completed_orders"]["2026-03-02"], 4)
+        self.assertEqual(payload["items"][1]["daily_completed_orders"]["2026-03-01"], 0)
+        self.assertEqual(payload["items"][1]["daily_completed_orders"]["2026-03-02"], 1)
 
 
 if __name__ == "__main__":

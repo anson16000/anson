@@ -1398,6 +1398,189 @@ def create_app() -> FastAPI:
             }
         )
 
+    @app.get("/api/v1/admin/entity-alerts")
+    def admin_entity_alerts(
+        start_date: date | None = None,
+        end_date: date | None = None,
+        province: str | None = None,
+        city: str | None = None,
+        district: str | None = None,
+        partner_id: str | None = None,
+    ):
+        _validate_query_window(start_date, end_date)
+        decline_abs_threshold = 3
+        decline_pct_threshold = 0.3
+        inactive_days_threshold = 7
+        if not partner_id:
+            return api_response(
+                {
+                    "requires_partner": True,
+                    "message": "请选择合伙人后查看商家/骑手预警",
+                    "merchant_alerts": [],
+                    "rider_alerts": [],
+                    "inactive_riders": [],
+                    "applied_thresholds": {
+                        "decline_abs_threshold": decline_abs_threshold,
+                        "decline_pct_threshold": decline_pct_threshold,
+                        "inactive_days_threshold": inactive_days_threshold,
+                    },
+                }
+            )
+        if not start_date or not end_date:
+            return api_response(
+                {
+                    "requires_partner": False,
+                    "message": "请选择开始日期和结束日期",
+                    "merchant_alerts": [],
+                    "rider_alerts": [],
+                    "inactive_riders": [],
+                    "applied_thresholds": {
+                        "decline_abs_threshold": decline_abs_threshold,
+                        "decline_pct_threshold": decline_pct_threshold,
+                        "inactive_days_threshold": inactive_days_threshold,
+                    },
+                }
+            )
+
+        day_count = (end_date - start_date).days + 1
+        if day_count < 2:
+            return api_response(
+                {
+                    "requires_partner": False,
+                    "message": "日期范围至少需要 2 天才能做前后半段对比",
+                    "merchant_alerts": [],
+                    "rider_alerts": [],
+                    "inactive_riders": [],
+                    "applied_thresholds": {
+                        "decline_abs_threshold": decline_abs_threshold,
+                        "decline_pct_threshold": decline_pct_threshold,
+                        "inactive_days_threshold": inactive_days_threshold,
+                    },
+                }
+            )
+
+        baseline_days = max(day_count // 2, 1)
+        baseline_end = start_date + timedelta(days=baseline_days - 1)
+        recent_start = baseline_end + timedelta(days=1)
+        baseline_completed_condition = (
+            (DwdOrderDetail.order_date >= start_date)
+            & (DwdOrderDetail.order_date <= baseline_end)
+            & DwdOrderDetail.is_completed.is_(True)
+        )
+        recent_completed_condition = (
+            (DwdOrderDetail.order_date >= recent_start)
+            & (DwdOrderDetail.order_date <= end_date)
+            & DwdOrderDetail.is_completed.is_(True)
+        )
+
+        def build_decline_alerts(rows: list[dict[str, Any]], id_key: str, name_key: str) -> list[dict[str, Any]]:
+            alerts = []
+            for row in rows:
+                baseline_completed = int(row["baseline_completed_orders"] or 0)
+                recent_completed = int(row["recent_completed_orders"] or 0)
+                change_abs = recent_completed - baseline_completed
+                drop_abs = baseline_completed - recent_completed
+                drop_pct = safe_ratio(drop_abs, baseline_completed)
+                if baseline_completed <= 0:
+                    continue
+                if drop_abs < decline_abs_threshold or drop_pct < decline_pct_threshold:
+                    continue
+                alerts.append(
+                    {
+                        id_key: row[id_key],
+                        name_key: row[name_key] or row[id_key],
+                        "baseline_completed_orders": baseline_completed,
+                        "recent_completed_orders": recent_completed,
+                        "change_abs": change_abs,
+                        "change_pct": safe_ratio(change_abs, baseline_completed),
+                        "drop_abs": drop_abs,
+                        "drop_pct": drop_pct,
+                    }
+                )
+            return sorted(alerts, key=lambda item: (item["drop_abs"], item["drop_pct"]), reverse=True)[:100]
+
+        with session_scope(session_factory) as session:
+            info = get_latest_import_info(session)
+            merchant_stmt = select(
+                DwdOrderDetail.merchant_id.label("merchant_id"),
+                func.max(func.coalesce(MerchantRoster.shop_name, MerchantRoster.merchant_name, DwdOrderDetail.merchant_id)).label("merchant_name"),
+                func.sum(case((baseline_completed_condition, 1), else_=0)).label("baseline_completed_orders"),
+                func.sum(case((recent_completed_condition, 1), else_=0)).label("recent_completed_orders"),
+            ).select_from(DwdOrderDetail).join(MerchantRoster, MerchantRoster.merchant_id == DwdOrderDetail.merchant_id, isouter=True)
+            merchant_stmt = _apply_dwd_filters(
+                merchant_stmt,
+                start_date=start_date,
+                end_date=end_date,
+                province=province,
+                city=city,
+                district=district,
+                partner_id=partner_id,
+            )
+            merchant_stmt = merchant_stmt.where(DwdOrderDetail.merchant_id.is_not(None)).group_by(DwdOrderDetail.merchant_id)
+            merchant_rows = list(session.execute(merchant_stmt).mappings())
+
+            rider_stmt = select(
+                DwdOrderDetail.rider_id.label("rider_id"),
+                func.max(func.coalesce(RiderRoster.rider_name, DwdOrderDetail.rider_name, DwdOrderDetail.rider_id)).label("rider_name"),
+                func.sum(case((baseline_completed_condition, 1), else_=0)).label("baseline_completed_orders"),
+                func.sum(case((recent_completed_condition, 1), else_=0)).label("recent_completed_orders"),
+                func.max(case((DwdOrderDetail.is_completed.is_(True), DwdOrderDetail.order_date), else_=None)).label("last_completed_date"),
+                func.sum(case((DwdOrderDetail.is_completed.is_(True), 1), else_=0)).label("completed_orders"),
+            ).select_from(DwdOrderDetail).join(RiderRoster, RiderRoster.rider_id == DwdOrderDetail.rider_id, isouter=True)
+            rider_stmt = _apply_dwd_filters(
+                rider_stmt,
+                start_date=start_date,
+                end_date=end_date,
+                province=province,
+                city=city,
+                district=district,
+                partner_id=partner_id,
+            )
+            rider_stmt = rider_stmt.where(DwdOrderDetail.rider_id.is_not(None)).group_by(DwdOrderDetail.rider_id)
+            rider_rows = list(session.execute(rider_stmt).mappings())
+
+        inactive_cutoff = end_date - timedelta(days=inactive_days_threshold - 1)
+        inactive_riders = []
+        for row in rider_rows:
+            last_completed_date = row["last_completed_date"]
+            completed_orders = int(row["completed_orders"] or 0)
+            if not last_completed_date or completed_orders <= 0:
+                continue
+            if last_completed_date >= inactive_cutoff:
+                continue
+            inactive_riders.append(
+                {
+                    "rider_id": row["rider_id"],
+                    "rider_name": row["rider_name"] or row["rider_id"],
+                    "last_completed_date": _to_iso_date(last_completed_date),
+                    "inactive_days": (end_date - last_completed_date).days,
+                    "completed_orders": completed_orders,
+                }
+            )
+
+        return api_response(
+            {
+                "data_version": info.get("data_version"),
+                "latest_ready_month": info.get("latest_ready_month"),
+                "requires_partner": False,
+                "message": "",
+                "compare_windows": {
+                    "baseline_start_date": start_date.isoformat(),
+                    "baseline_end_date": baseline_end.isoformat(),
+                    "recent_start_date": recent_start.isoformat(),
+                    "recent_end_date": end_date.isoformat(),
+                },
+                "merchant_alerts": build_decline_alerts(merchant_rows, "merchant_id", "merchant_name"),
+                "rider_alerts": build_decline_alerts(rider_rows, "rider_id", "rider_name"),
+                "inactive_riders": sorted(inactive_riders, key=lambda item: (item["inactive_days"], item["completed_orders"]), reverse=True)[:100],
+                "applied_thresholds": {
+                    "decline_abs_threshold": decline_abs_threshold,
+                    "decline_pct_threshold": decline_pct_threshold,
+                    "inactive_days_threshold": inactive_days_threshold,
+                },
+            }
+        )
+
     @app.get("/api/v1/admin/hourly")
     def admin_hourly(
         start_date: date | None = None,
@@ -1790,6 +1973,8 @@ def create_app() -> FastAPI:
                 new_flag=new_flag,
                 info=info,
                 to_iso_date=_to_iso_date,
+                start_date=start_date,
+                end_date=end_date,
             )
         )
 

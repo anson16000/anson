@@ -121,13 +121,14 @@ const controller = createPageController({
     }
   },
   loadData: async (filters) => {
-    const [metrics, health, fluctuation] = await Promise.all([
+    const [metrics, health, fluctuation, entityAlerts] = await Promise.all([
       api("/api/v1/admin/metrics", filters),
       api("/api/v1/admin/health", filters),
       api("/api/v1/admin/partners/fluctuation", filters),
+      api("/api/v1/admin/entity-alerts", filters),
     ]);
     renderAlertsSummary(metrics, health);
-    renderAlertsTables(metrics, health, fluctuation);
+    renderAlertsTables(metrics, health, fluctuation, entityAlerts);
   },
   onError: showError,
 });

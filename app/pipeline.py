@@ -188,7 +188,11 @@ def init_database(
 
 def _migrate_tables(engine) -> None:
     table_columns = {
+        "ods_file_registry": [
+            ("source_file_mtime", "TIMESTAMP"),
+        ],
         "ods_order_detail_raw": [
+            ("source_file_mtime", "TIMESTAMP"),
             ("rider_name", "VARCHAR"),
             ("employment_status", "VARCHAR"),
             ("customer_service_id", "VARCHAR"),
@@ -343,6 +347,14 @@ def _sql_literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
+def _source_file_mtime(path: Path) -> datetime:
+    return datetime.fromtimestamp(path.stat().st_mtime)
+
+
+def _timestamp_literal(value: datetime) -> str:
+    return "CAST(" + _sql_literal(value.isoformat(sep=" ", timespec="microseconds")) + " AS TIMESTAMP)"
+
+
 def _sql_identifier(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
@@ -421,6 +433,7 @@ def _create_registry_running(
                 file_name=file_path.name,
                 file_size=file_path.stat().st_size,
                 sha256=sha256,
+                source_file_mtime=_source_file_mtime(file_path),
                 order_month=order_month,
                 stage_file_path=str(stage_file_path) if stage_file_path else None,
                 stage_status=stage_status,
@@ -451,6 +464,7 @@ def _create_registry_failed(
                 file_name=file_path.name,
                 file_size=file_path.stat().st_size,
                 sha256=sha256,
+                source_file_mtime=_source_file_mtime(file_path),
                 stage_file_path=str(stage_file_path) if stage_file_path else None,
                 stage_status=stage_status,
                 status="failed",
@@ -491,6 +505,7 @@ def _ensure_order_stage_table(session: Session) -> None:
                 file_id VARCHAR,
                 source_row_number INTEGER,
                 order_month VARCHAR,
+                source_file_mtime TIMESTAMP,
                 order_id VARCHAR,
                 partner_id VARCHAR,
                 partner_name VARCHAR,
@@ -650,12 +665,32 @@ def _preprocess_files(
         force_order_reload = _needs_order_reload(session)
         force_partner_reload = _needs_partner_region_reload(session)
 
+    sha_by_path: dict[str, str] = {}
+    order_months_to_reload: set[str] = set()
+    with session_scope(session_factory) as session:
+        for file_type, path in files:
+            if file_type != "orders":
+                continue
+            path_key = str(path.resolve())
+            sha = file_sha256(path)
+            sha_by_path[path_key] = sha
+            registry_hit = _is_success_registry_exists(session, file_type, sha)
+            skip_by_registry = _should_skip_success_registry(mode, registry_hit)
+            inferred_month = _normalize_month(infer_order_month_from_filename(path.name))
+            if inferred_month and (force_order_reload or not skip_by_registry):
+                order_months_to_reload.add(inferred_month)
+
     for file_type, path in files:
-        sha = file_sha256(path)
+        path_key = str(path.resolve())
+        sha = sha_by_path.get(path_key) or file_sha256(path)
         with session_scope(session_factory) as session:
             should_force_reload = (file_type == "orders" and force_order_reload) or (file_type == "partners" and force_partner_reload)
+            same_month_reload = (
+                file_type == "orders"
+                and _normalize_month(infer_order_month_from_filename(path.name)) in order_months_to_reload
+            )
             skip_by_registry = _should_skip_success_registry(mode, _is_success_registry_exists(session, file_type, sha))
-            if skip_by_registry and not should_force_reload:
+            if skip_by_registry and not should_force_reload and not same_month_reload:
                 skipped += 1
                 continue
 
@@ -697,6 +732,7 @@ def _preprocess_files(
                         file_name=path.name,
                         file_size=path.stat().st_size,
                         sha256=sha,
+                        source_file_mtime=path.stat().st_mtime,
                         source_type=source_type,
                         stage_file_path=stage_path,
                         stage_status=stage_status,
@@ -761,6 +797,7 @@ def _load_single_order_to_stage(session: Session, run_id: str, order_file: Prepa
     inferred_month_sql = _sql_literal(order_file.inferred_month) if _normalize_month(order_file.inferred_month) else "NULL"
     parsed_added_sql = _timestamp_sql(expressions["added_at"])
     order_month_sql = f"COALESCE(strftime({parsed_added_sql}, '%Y-%m'), {inferred_month_sql})"
+    source_file_mtime_sql = _timestamp_literal(datetime.fromtimestamp(order_file.source_file_mtime))
 
     insert_sql = f"""
         INSERT INTO stg_order_raw (
@@ -768,6 +805,7 @@ def _load_single_order_to_stage(session: Session, run_id: str, order_file: Prepa
             file_id,
             source_row_number,
             order_month,
+            source_file_mtime,
             order_id,
             partner_id,
             partner_name,
@@ -804,6 +842,7 @@ def _load_single_order_to_stage(session: Session, run_id: str, order_file: Prepa
             {_sql_literal(order_file.file_id)},
             CAST(row_number() OVER () + 1 AS INTEGER),
             {order_month_sql},
+            {source_file_mtime_sql},
             {expressions["order_id"]},
             {expressions["partner_id"]},
             {expressions["partner_name"]},
@@ -977,6 +1016,7 @@ def _merge_ods_and_rosters(
                             batch_id,
                             row_number,
                             order_month,
+                            source_file_mtime,
                             imported_at,
                             order_id,
                             partner_id,
@@ -1016,6 +1056,7 @@ def _merge_ods_and_rosters(
                             {_sql_literal(run_id)},
                             source_row_number,
                             order_month,
+                            source_file_mtime,
                             CURRENT_TIMESTAMP,
                             order_id,
                             partner_id,
@@ -1311,7 +1352,10 @@ def rebuild_dwd(session: Session, settings: Settings, order_months: set[str], ba
         WITH latest_raw AS (
             SELECT
                 r.*,
-                row_number() OVER (PARTITION BY r.order_id ORDER BY r.imported_at DESC, r.row_number DESC) AS rn
+                row_number() OVER (
+                    PARTITION BY r.order_id
+                    ORDER BY r.source_file_mtime DESC NULLS LAST, r.imported_at DESC, r.row_number DESC, r.file_registry_id DESC
+                ) AS rn
             FROM ods_order_detail_raw r
             WHERE r.order_month IN ({month_sql})
               AND r.order_id IS NOT NULL
