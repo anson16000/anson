@@ -50,6 +50,13 @@ const WORKFORCE_TARGETS = {
 const savedFilters = loadFilters(PAGE_KEY);
 const sharedData = loadFilters("");
 const urlParams = new URLSearchParams(window.location.search);
+const rosterState = {
+  riderItems: [],
+  riderDateColumns: [],
+  riderTiers: [],
+  merchantItems: [],
+  merchantDateColumns: [],
+};
 
 const sharedPartnerId = urlParams.get("partner_id") || sharedData._shared_partner_id || "";
 if (sharedPartnerId) savedFilters.partner_id = sharedPartnerId;
@@ -94,6 +101,18 @@ function merchantListFlag() {
   return requireElement("#entitiesMerchantListFilter").value || "all";
 }
 
+function normalizeSearchText(value) {
+  return String(value || "").replace(/\s+/g, "").toLowerCase();
+}
+
+function riderSearchText() {
+  return normalizeSearchText(document.querySelector("#entitiesRiderSearch")?.value || "");
+}
+
+function merchantSearchText() {
+  return normalizeSearchText(document.querySelector("#entitiesMerchantSearch")?.value || "");
+}
+
 function merchantLikeThreshold() {
   return requireElement("#merchantLikeThresholdLocal").value || 20;
 }
@@ -130,6 +149,53 @@ function buildRiderTierPayload() {
   return tiers.length ? JSON.stringify(tiers) : "";
 }
 
+function matchesRosterSearch(row, keys, query) {
+  if (!query) return true;
+  return keys.some((key) => normalizeSearchText(row?.[key]).includes(query));
+}
+
+function buildFilteredRiderTotalRow(rows, dateColumns) {
+  const dailyCompletedOrders = Object.fromEntries(
+    (dateColumns || []).map((dateText) => [
+      dateText,
+      rows.reduce((sum, row) => sum + Number(row?.daily_completed_orders?.[dateText] || 0), 0),
+    ]),
+  );
+  return {
+    __pinnedTop: true,
+    __is_total: true,
+    rider_id: "-",
+    rider_name: "-",
+    hire_date: "-",
+    completed_orders: rows.reduce((sum, row) => sum + Number(row?.completed_orders || 0), 0),
+    qualified_days: rows.reduce((sum, row) => sum + Number(row?.qualified_days || 0), 0),
+    is_new_rider: null,
+    is_target_met: rows.reduce((sum, row) => sum + Number(row?.is_target_met || 0), 0),
+    daily_completed_orders: dailyCompletedOrders,
+  };
+}
+
+function renderFilteredRiderRoster() {
+  const query = riderSearchText();
+  if (!query) {
+    renderRiderRoster(rosterState.riderItems, rosterState.riderDateColumns);
+    return;
+  }
+  const matchedRows = (rosterState.riderItems || [])
+    .filter((row) => !row?.__is_total && !row?.__pinnedTop)
+    .filter((row) => matchesRosterSearch(row, ["rider_id", "rider_name"], query));
+  renderRiderRoster(
+    matchedRows.length ? [buildFilteredRiderTotalRow(matchedRows, rosterState.riderDateColumns), ...matchedRows] : [],
+    rosterState.riderDateColumns,
+  );
+}
+
+function renderFilteredMerchantRoster() {
+  const query = merchantSearchText();
+  const rows = (rosterState.merchantItems || []).filter((row) => matchesRosterSearch(row, ["merchant_id", "merchant_name"], query));
+  renderMerchantRoster(rows, rosterState.merchantDateColumns);
+}
+
 async function loadMerchantIdentity(filters) {
   const result = await api(`/api/v1/partner/${filters.partner_id}/merchant-like-users`, {
     start_date: filters.start_date,
@@ -155,9 +221,14 @@ async function loadRosters(filters) {
       new_flag: merchantListFlag(),
     }),
   ]);
-  renderRiderRoster(riders.items || [], riders.date_columns || []);
-  renderRiderTierTable(riders.rider_tiers || []);
-  renderMerchantRoster(merchants.items || [], merchants.date_columns || []);
+  rosterState.riderItems = riders.items || [];
+  rosterState.riderDateColumns = riders.date_columns || [];
+  rosterState.riderTiers = riders.rider_tiers || [];
+  rosterState.merchantItems = merchants.items || [];
+  rosterState.merchantDateColumns = merchants.date_columns || [];
+  renderFilteredRiderRoster();
+  renderRiderTierTable(rosterState.riderTiers);
+  renderFilteredMerchantRoster();
 }
 
 async function loadWorkforceHeatmaps(filters) {
@@ -203,6 +274,11 @@ const controller = createPageController({
     rider_target_completed_days: riderTargetCompletedDays(),
   }),
   clearPanels: () => {
+    rosterState.riderItems = [];
+    rosterState.riderDateColumns = [];
+    rosterState.riderTiers = [];
+    rosterState.merchantItems = [];
+    rosterState.merchantDateColumns = [];
     renderMerchantIdentity([]);
     renderCommission([]);
     renderRiderRoster([], []);
@@ -297,6 +373,14 @@ const controller = createPageController({
       const filters = controller.getBaseFilters();
       if (!filters.partner_id) return;
       loadRosters(filters).catch(showError);
+    });
+
+    requireElement("#entitiesRiderSearch").addEventListener("input", () => {
+      renderFilteredRiderRoster();
+    });
+
+    requireElement("#entitiesMerchantSearch").addEventListener("input", () => {
+      renderFilteredMerchantRoster();
     });
   },
   onSaveFilters: (filters) => {

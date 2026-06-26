@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from app.api import _build_hourly_metrics, _calc_partner_recent_daily, create_app
+from app.api import ENTITY_ALERT_INACTIVE_DAYS_THRESHOLD, _build_hourly_metrics, _calc_partner_recent_daily, create_app
 from app.api_support import validate_query_window
 from main import build_parser
 
@@ -66,6 +66,9 @@ class ApiContractsTestCase(unittest.TestCase):
         param_names = {item["name"] for item in parameters}
 
         self.assertTrue({"start_date", "end_date", "province", "city", "district", "partner_id"}.issubset(param_names))
+
+    def test_entity_alerts_inactive_rider_threshold_is_three_days(self):
+        self.assertEqual(ENTITY_ALERT_INACTIVE_DAYS_THRESHOLD, 3)
 
     def test_admin_metrics_endpoint_exists(self):
         schema = self.app.openapi()

@@ -63,6 +63,9 @@ from app.services.partner_rosters import build_partner_merchants_payload, build_
 from app.utils import repair_mojibake_text
 
 
+ENTITY_ALERT_INACTIVE_DAYS_THRESHOLD = 3
+
+
 def _calc_duration_minutes(start_value: datetime | None, end_value: datetime | None) -> float | None:
     if not start_value or not end_value:
         return None
@@ -1410,7 +1413,7 @@ def create_app() -> FastAPI:
         _validate_query_window(start_date, end_date)
         decline_abs_threshold = 3
         decline_pct_threshold = 0.3
-        inactive_days_threshold = 7
+        inactive_days_threshold = ENTITY_ALERT_INACTIVE_DAYS_THRESHOLD
         if not partner_id:
             return api_response(
                 {
