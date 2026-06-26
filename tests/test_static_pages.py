@@ -37,7 +37,7 @@ class StaticPageContentTestCase(unittest.TestCase):
         self.assertIn("summary.actual_received_total", content)
         self.assertIn("summary.avg_ticket_price", content)
 
-    def test_entities_page_uses_daily_rider_columns_and_tier_ui(self):
+    def test_entities_page_uses_daily_entity_columns_and_tier_ui(self):
         html = (ROOT / "app" / "static" / "entities.html").read_text(encoding="utf-8")
         js = (ROOT / "app" / "static" / "entities.js").read_text(encoding="utf-8")
         sections = (ROOT / "app" / "static" / "modules" / "entities-sections.js").read_text(encoding="utf-8")
@@ -45,17 +45,36 @@ class StaticPageContentTestCase(unittest.TestCase):
         self.assertIn('id="entitiesRiderTierInput"', html)
         self.assertIn('id="entitiesRiderTierTable"', html)
         self.assertIn('id="entitiesRiderRosterTable"', html)
+        self.assertIn('id="entitiesMerchantRosterTable"', html)
+        self.assertIn('id="entitiesOrderSourceTable"', html)
         self.assertIn('id="entitiesRiderTargetCompleted"', html)
         self.assertIn('id="entitiesRiderTargetDays"', html)
         self.assertIn("parseTierText", js)
         self.assertIn("renderRiderRoster(riders.items || [], riders.date_columns || [])", js)
+        self.assertIn("renderMerchantRoster(merchants.items || [], merchants.date_columns || [])", js)
+        self.assertIn("renderOrderSourceTable(orderSources.items || [], orderSources.date_columns || [])", js)
         self.assertIn("renderRiderTierTable", js)
         self.assertIn("target_daily_completed_orders: riderTargetCompletedOrders()", js)
         self.assertIn("target_completed_days: riderTargetCompletedDays()", js)
         self.assertIn("function formatMonthDay", sections)
+        self.assertIn("function buildDailyColumns", sections)
+        self.assertIn("daily_completed_orders", sections)
         self.assertIn('label: "序号"', sections)
         self.assertIn('label: "完成总订单"', sections)
         self.assertIn('label: "是否达标"', sections)
+
+    def test_alerts_page_contains_entity_alert_tables(self):
+        html = (ROOT / "app" / "static" / "alerts.html").read_text(encoding="utf-8")
+        js = (ROOT / "app" / "static" / "alerts.js").read_text(encoding="utf-8")
+        sections = (ROOT / "app" / "static" / "modules" / "alerts-sections.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="alertsMerchantVolumeTable"', html)
+        self.assertIn('id="alertsRiderVolumeTable"', html)
+        self.assertIn('id="alertsInactiveRiderTable"', html)
+        self.assertIn('/api/v1/admin/entity-alerts', js)
+        self.assertIn("entityAlerts.merchant_alerts", sections)
+        self.assertIn("entityAlerts.rider_alerts", sections)
+        self.assertIn("entityAlerts.inactive_riders", sections)
 
     def test_entities_page_contains_fulltime_parttime_heatmaps(self):
         html = (ROOT / "app" / "static" / "entities.html").read_text(encoding="utf-8")
@@ -63,7 +82,7 @@ class StaticPageContentTestCase(unittest.TestCase):
         sections = (ROOT / "app" / "static" / "modules" / "hourly-workforce-sections.js").read_text(encoding="utf-8")
         chart = (ROOT / "app" / "static" / "ui" / "chart.js").read_text(encoding="utf-8")
 
-        self.assertIn("全职兼职热力", html)
+        self.assertIn("全职兼职时段热力", html)
         self.assertIn('id="entitiesWorkforceFulltimeRiderHeatmap"', html)
         self.assertIn('id="entitiesWorkforceParttimeRiderHeatmap"', html)
         self.assertIn('id="entitiesWorkforceFulltimeEfficiencyHeatmap"', html)

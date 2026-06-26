@@ -157,7 +157,7 @@ async function loadRosters(filters) {
   ]);
   renderRiderRoster(riders.items || [], riders.date_columns || []);
   renderRiderTierTable(riders.rider_tiers || []);
-  renderMerchantRoster(merchants.items || []);
+  renderMerchantRoster(merchants.items || [], merchants.date_columns || []);
 }
 
 async function loadWorkforceHeatmaps(filters) {
@@ -337,7 +337,7 @@ const controller = createPageController({
     await Promise.all([loadRosters(filters), loadMerchantIdentity(filters)]);
     renderCommission(riderIncome.items || []);
     renderOrderSourceSummary(orderSources);
-    renderOrderSourceTable(orderSources.items || []);
+    renderOrderSourceTable(orderSources.items || [], orderSources.date_columns || []);
     renderEntityContributionCharts(newRiders, newMerchants);
     await loadWorkforceHeatmaps(filters);
   },

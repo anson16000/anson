@@ -28,7 +28,7 @@ function yesNoOrDash(value, row) {
   return yesNo(value);
 }
 
-function totalAwareNumber(value, row) {
+function totalAwareNumber(value) {
   return formatNumber(value || 0);
 }
 
@@ -44,6 +44,16 @@ function formatMonthDay(dateText) {
   const match = String(dateText).match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return String(dateText);
   return `${Number(match[2])}月${Number(match[3])}日`;
+}
+
+function buildDailyColumns(dateColumns = []) {
+  return (dateColumns || []).map((dateText) => ({
+    key: dateText,
+    label: formatMonthDay(dateText),
+    sortable: false,
+    align: "right",
+    render: (_value, row) => formatNumber(row?.daily_completed_orders?.[dateText] || 0),
+  }));
 }
 
 export function renderEntitiesSummary(overview) {
@@ -118,14 +128,6 @@ export function renderCommission(rows) {
 }
 
 export function renderRiderRoster(rows, dateColumns = []) {
-  const dynamicDateColumns = (dateColumns || []).map((dateText) => ({
-    key: dateText,
-    label: formatMonthDay(dateText),
-    sortable: false,
-    align: "right",
-    render: (_value, row) => formatNumber(row?.daily_completed_orders?.[dateText] || 0),
-  }));
-
   renderTable(
     "#entitiesRiderRosterTable",
     [
@@ -136,7 +138,7 @@ export function renderRiderRoster(rows, dateColumns = []) {
       { key: "is_new_rider", label: "是否新骑手", render: yesNoOrDash, align: "center" },
       { key: "completed_orders", label: "完成总订单", sortable: true, render: totalAwareNumber, align: "right" },
       { key: "is_target_met", label: "是否达标", sortable: true, render: targetStatus, align: "center" },
-      ...dynamicDateColumns,
+      ...buildDailyColumns(dateColumns),
     ],
     rows || [],
     { emptyText: "当前筛选范围暂无骑手名单" },
@@ -155,7 +157,7 @@ export function renderRiderTierTable(rows) {
   );
 }
 
-export function renderMerchantRoster(rows) {
+export function renderMerchantRoster(rows, dateColumns = []) {
   renderTable(
     "#entitiesMerchantRosterTable",
     [
@@ -167,6 +169,7 @@ export function renderMerchantRoster(rows) {
       { key: "completed_orders", label: "完成订单", sortable: true, render: formatNumber, align: "right" },
       { key: "cancelled_orders", label: "取消订单", sortable: true, render: formatNumber, align: "right" },
       { key: "is_new_merchant", label: "是否新商家", render: yesNo, align: "center" },
+      ...buildDailyColumns(dateColumns),
     ],
     rows || [],
     { emptyText: "当前筛选范围暂无商家名单" },
@@ -215,7 +218,7 @@ export function renderOrderSourceSummary(payload) {
   );
 }
 
-export function renderOrderSourceTable(rows) {
+export function renderOrderSourceTable(rows, dateColumns = []) {
   renderTable(
     "#entitiesOrderSourceTable",
     [
@@ -225,6 +228,7 @@ export function renderOrderSourceTable(rows) {
       { key: "completed_orders", label: "完成订单", sortable: true, render: formatNumber, align: "right" },
       { key: "cancelled_orders", label: "取消订单", sortable: true, render: formatNumber, align: "right" },
       { key: "valid_completed_orders", label: "有效完成订单", sortable: true, render: formatNumber, align: "right" },
+      ...buildDailyColumns(dateColumns),
     ],
     rows || [],
     { emptyText: "当前筛选范围暂无订单来源数据" },

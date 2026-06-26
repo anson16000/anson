@@ -11,6 +11,7 @@ class PreparedOrderFile:
     file_name: str
     file_size: int
     sha256: str
+    source_file_mtime: float
     source_type: str
     stage_file_path: Path
     stage_status: str

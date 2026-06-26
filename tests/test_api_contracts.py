@@ -29,6 +29,7 @@ class ApiContractsTestCase(unittest.TestCase):
         self.assertIn("/api/v1/partner/{partner_id}/order-sources", schema["paths"])
         self.assertIn("/api/v1/partner/{partner_id}/riders", schema["paths"])
         self.assertIn("/api/v1/admin/partners/fluctuation", schema["paths"])
+        self.assertIn("/api/v1/admin/entity-alerts", schema["paths"])
 
     def test_merchant_threshold_only_exists_on_merchant_like_endpoint(self):
         schema = self.app.openapi()
@@ -58,6 +59,13 @@ class ApiContractsTestCase(unittest.TestCase):
         fluctuation_param_names = {item["name"] for item in fluctuation_parameters}
 
         self.assertTrue({"province", "city", "district", "partner_id"}.issubset(fluctuation_param_names))
+
+    def test_entity_alerts_endpoint_accepts_region_and_partner_filters(self):
+        schema = self.app.openapi()
+        parameters = schema["paths"]["/api/v1/admin/entity-alerts"]["get"]["parameters"]
+        param_names = {item["name"] for item in parameters}
+
+        self.assertTrue({"start_date", "end_date", "province", "city", "district", "partner_id"}.issubset(param_names))
 
     def test_admin_metrics_endpoint_exists(self):
         schema = self.app.openapi()

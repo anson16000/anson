@@ -28,7 +28,7 @@ function getSharedPartnerParam() {
 
 function partnerColumns(includeScore = false) {
   const columns = [
-    { key: "partner_id", label: "合伙人ID", sortType: "string" },
+    { key: "partner_id", label: "合伙人 ID", sortType: "string" },
     { key: "partner_name", label: "合伙人名称" },
     { key: "total_orders", label: "总订单", render: formatNumber, align: "right" },
     { key: "valid_orders", label: "有效订单", render: formatNumber, align: "right" },
@@ -46,6 +46,13 @@ function partnerColumns(includeScore = false) {
     columns.push({ key: "total_score", label: "健康度评分", render: formatDecimal, align: "right" });
   }
   return columns;
+}
+
+function entityAlertEmptyText(entityAlerts, fallback) {
+  if (entityAlerts?.requires_partner) {
+    return entityAlerts.message || "请选择合伙人后查看商家/骑手预警";
+  }
+  return entityAlerts?.message || fallback;
 }
 
 export function renderAlertsSummary(metrics, health) {
@@ -78,13 +85,13 @@ export function renderAlertsSummary(metrics, health) {
   ]);
 }
 
-export function renderAlertsTables(metrics, health, fluctuation) {
+export function renderAlertsTables(metrics, health, fluctuation, entityAlerts = {}) {
   renderTable("#alertsFocusTable", partnerColumns(true), metrics.focus_partner_items || [], { emptyText: "当前筛选范围暂无关注加盟商" });
   renderTable("#alertsRiskTable", partnerColumns(true), metrics.risk_partner_items || [], { emptyText: "当前筛选范围暂无风险加盟商" });
   renderTable(
     "#alertsHealthTable",
     [
-      { key: "partner_id", label: "合伙人ID", sortType: "string" },
+      { key: "partner_id", label: "合伙人 ID", sortType: "string" },
       { key: "partner_name", label: "合伙人名称" },
       { key: "total_score", label: "总分", render: formatDecimal, align: "right" },
       { key: "label", label: "状态" },
@@ -96,7 +103,7 @@ export function renderAlertsTables(metrics, health, fluctuation) {
   renderTable(
     "#alertsFluctuationTable",
     [
-      { key: "partner_id", label: "合伙人ID", sortType: "string" },
+      { key: "partner_id", label: "合伙人 ID", sortType: "string" },
       { key: "partner_name", label: "合伙人名称" },
       { key: "city_level", label: "城市档位" },
       { key: "latest_completed_orders", label: "最新完成订单", render: formatNumber, align: "right" },
@@ -106,5 +113,52 @@ export function renderAlertsTables(metrics, health, fluctuation) {
     ],
     fluctuation.alerts || [],
     { emptyText: "当前筛选范围暂无波动预警" },
+  );
+
+  const windows = entityAlerts.compare_windows;
+  setHtml(
+    "#alertsEntityNote",
+    windows
+      ? `<div class="hint">商家/骑手预警按前后半段对比：${windows.baseline_start_date} 至 ${windows.baseline_end_date} 对比 ${windows.recent_start_date} 至 ${windows.recent_end_date}。</div>`
+      : `<div class="hint">${entityAlerts.message || "请选择合伙人后查看商家/骑手预警"}</div>`,
+  );
+
+  renderTable(
+    "#alertsMerchantVolumeTable",
+    [
+      { key: "merchant_id", label: "商家 ID", sortType: "string" },
+      { key: "merchant_name", label: "商户名称" },
+      { key: "baseline_completed_orders", label: "基线完成订单", render: formatNumber, align: "right" },
+      { key: "recent_completed_orders", label: "近期完成订单", render: formatNumber, align: "right" },
+      { key: "drop_abs", label: "下降单量", render: formatNumber, align: "right" },
+      { key: "drop_pct", label: "下降比例", render: formatPercent, align: "right" },
+    ],
+    entityAlerts.merchant_alerts || [],
+    { emptyText: entityAlertEmptyText(entityAlerts, "当前合伙人暂无商家单量预警") },
+  );
+  renderTable(
+    "#alertsRiderVolumeTable",
+    [
+      { key: "rider_id", label: "骑手 ID", sortType: "string" },
+      { key: "rider_name", label: "骑手姓名" },
+      { key: "baseline_completed_orders", label: "基线完成订单", render: formatNumber, align: "right" },
+      { key: "recent_completed_orders", label: "近期完成订单", render: formatNumber, align: "right" },
+      { key: "drop_abs", label: "下降单量", render: formatNumber, align: "right" },
+      { key: "drop_pct", label: "下降比例", render: formatPercent, align: "right" },
+    ],
+    entityAlerts.rider_alerts || [],
+    { emptyText: entityAlertEmptyText(entityAlerts, "当前合伙人暂无骑手单量预警") },
+  );
+  renderTable(
+    "#alertsInactiveRiderTable",
+    [
+      { key: "rider_id", label: "骑手 ID", sortType: "string" },
+      { key: "rider_name", label: "骑手姓名" },
+      { key: "last_completed_date", label: "最后完成日期", sortable: true },
+      { key: "inactive_days", label: "未接单天数", render: formatNumber, align: "right" },
+      { key: "completed_orders", label: "区间完成订单", render: formatNumber, align: "right" },
+    ],
+    entityAlerts.inactive_riders || [],
+    { emptyText: entityAlertEmptyText(entityAlerts, "当前合伙人暂无 7 天未接单骑手") },
   );
 }

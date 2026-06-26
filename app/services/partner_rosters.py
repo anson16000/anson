@@ -125,7 +125,7 @@ def build_partner_riders_payload(
         "items": sorted(
             [total_row, *rider_items],
             key=lambda item: (
-                1 if item.get("__pinnedTop") else 0,
+                0 if item.get("__pinnedTop") else 1,
                 -sum(int(value or 0) for value in (item.get("daily_completed_orders") or {}).values()),
                 str(item["rider_id"] or ""),
             ),
@@ -139,8 +139,11 @@ def build_partner_merchants_payload(
     new_flag: str,
     info: dict[str, Any],
     to_iso_date: Callable[[Any], str | None],
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> dict[str, Any]:
     new_merchant_daily = defaultdict(int)
+    date_set = set()
     merchant_items_map = defaultdict(
         lambda: {
             "merchant_id": None,
@@ -150,6 +153,7 @@ def build_partner_merchants_payload(
             "completed_orders": 0,
             "cancelled_orders": 0,
             "is_new_merchant": 0,
+            "daily_completed_orders": {},
         }
     )
     normalized_new_flag = (new_flag or "all").lower()
@@ -171,10 +175,21 @@ def build_partner_merchants_payload(
         merchant_item["completed_orders"] += completed_orders
         merchant_item["cancelled_orders"] += cancelled_orders
         merchant_item["is_new_merchant"] = max(int(merchant_item["is_new_merchant"]), is_new_merchant)
+        date_text = to_iso_date(row["date"])
+        if date_text:
+            date_set.add(date_text)
+            merchant_item["daily_completed_orders"][date_text] = (
+                int(merchant_item["daily_completed_orders"].get(date_text, 0) or 0) + completed_orders
+            )
         if is_new_merchant == 1 and completed_orders > 0:
-            date_text = to_iso_date(row["date"])
             if date_text:
                 new_merchant_daily[date_text] += completed_orders
+
+    if start_date and end_date and start_date <= end_date:
+        total_days = (end_date - start_date).days + 1
+        date_columns = [(start_date + timedelta(days=offset)).isoformat() for offset in range(total_days)]
+    else:
+        date_columns = sorted(date_set)
 
     merchant_items = []
     for item in merchant_items_map.values():
@@ -183,11 +198,16 @@ def build_partner_merchants_payload(
             continue
         if normalized_new_flag == "old" and is_new_merchant == 1:
             continue
+        item["daily_completed_orders"] = {
+            date_text: int(item["daily_completed_orders"].get(date_text, 0) or 0)
+            for date_text in date_columns
+        }
         merchant_items.append(item)
 
     return {
         "data_version": info.get("data_version"),
         "latest_ready_month": info.get("latest_ready_month"),
+        "date_columns": date_columns,
         "daily": [
             {"date": bucket_date, "completed_orders": completed_orders}
             for bucket_date, completed_orders in sorted(new_merchant_daily.items())

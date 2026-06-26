@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Callable
 
 from sqlalchemy import case, func, select
@@ -73,10 +73,42 @@ def build_partner_order_sources(
         }
         for row in session.execute(stmt).mappings()
     ]
+
+    daily_stmt = select(
+        source_expr.label("order_source"),
+        DwdOrderDetail.order_date.label("date"),
+        func.sum(case((DwdOrderDetail.is_completed.is_(True), 1), else_=0)).label("completed_orders"),
+    ).select_from(DwdOrderDetail)
+    daily_stmt = apply_dwd_filters(daily_stmt, start_date=start_date, end_date=end_date, partner_id=partner_id)
+    daily_stmt = daily_stmt.group_by(source_expr, DwdOrderDetail.order_date)
+
+    date_set = set()
+    source_daily = defaultdict(dict)
+    for row in session.execute(daily_stmt).mappings():
+        source = row["order_source"] or "未知"
+        bucket_date = row["date"]
+        if not bucket_date:
+            continue
+        date_text = bucket_date.isoformat() if hasattr(bucket_date, "isoformat") else str(bucket_date)
+        date_set.add(date_text)
+        source_daily[source][date_text] = int(row["completed_orders"] or 0)
+
+    if start_date and end_date and start_date <= end_date:
+        total_days = (end_date - start_date).days + 1
+        date_columns = [(start_date + timedelta(days=offset)).isoformat() for offset in range(total_days)]
+    else:
+        date_columns = sorted(date_set)
+
+    for item in rows:
+        item["daily_completed_orders"] = {
+            date_text: int(source_daily[item["order_source"]].get(date_text, 0) or 0)
+            for date_text in date_columns
+        }
+
     rows.sort(key=lambda item: (item["total_orders"], item["completed_orders"]), reverse=True)
     summary = {
         "total_orders": sum(item["total_orders"] for item in rows),
         "completed_orders": sum(item["completed_orders"] for item in rows),
         "valid_orders": sum(item["valid_orders"] for item in rows),
     }
-    return {"items": rows, "summary": summary}
+    return {"items": rows, "summary": summary, "date_columns": date_columns}
